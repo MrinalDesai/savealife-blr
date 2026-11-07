@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SaveAlife BLR — ER</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+<style> canvas { display:block; width:100%; height:150px; border-radius:6px; background:#0b0f14; } </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="brand" href="index.html" style="text-decoration:none">SaveAlife <span>BLR</span></a>
+    <div class="crumb" id="hosp">TRAUMA ER</div>
+    <div class="scenarios" id="scenarios"></div>
+    <div class="right">
+      <span class="kicker">Incoming in</span><div class="big green" id="eta">—</div>
+      <div style="width:1px;height:24px;background:var(--line2)"></div>
+      <span class="kicker">Golden hour</span><div class="big amber" id="golden">60:00</div>
+      <nav class="nav"><a data-page="home" href="index.html">Home</a><a data-page="bystander" href="bystander.html">Bystander</a><a data-page="dispatch" href="dispatch.html">Dispatch</a><a data-page="er" href="er.html">ER</a></nav>
+    </div>
+  </div>
+  <div style="flex:1; display:grid; grid-template-columns: 420px 1fr 360px; gap:14px; padding:14px; min-height:0">
+    <div class="stack" style="min-height:0">
+      <div class="card" id="head"><div class="sim">No active incident.</div></div>
+      <div class="tiles">
+        <div class="card tile"><div class="kicker">HR</div><div class="v amber" id="hr">—</div><div class="u">bpm</div></div>
+        <div class="card tile"><div class="kicker">BP</div><div class="v" id="bp">—</div><div class="u">mmHg</div></div>
+        <div class="card tile"><div class="kicker">SpO₂</div><div class="v" id="spo2">—</div><div class="u">%</div></div>
+        <div class="card tile"><div class="kicker">RR</div><div class="v" id="rr">—</div><div class="u">/min</div></div>
+      </div>
+      <div class="card grow" style="min-height:0"><div class="kicker">ECG · lead II · 25 mm/s</div><canvas id="ecg" width="392" height="150" style="margin-top:8px"></canvas></div>
+    </div>
+    <div class="card stack" style="min-height:0; gap:8px"><div class="kicker">Timeline · scene → ER</div><div class="timeline grow" id="timeline" style="overflow:auto"></div></div>
+    <div class="stack" style="min-height:0">
+      <div class="card stack grow" style="gap:6px; min-height:0">
+        <div class="kicker">Intake form · prefilled by handoff agent</div>
+        <label>Patient ID <input id="f_id" readonly></label>
+        <label>Mechanism <input id="f_mech" readonly></label>
+        <label>Blood group <input id="f_blood" readonly></label>
+        <label>Triage <input id="f_tri" readonly></label>
+        <label>Transport <input id="f_mode" readonly></label>
+        <label>Requested <input id="f_req" readonly></label>
+        <div class="row" style="margin-top:auto; padding-top:8px"><button class="primary grow" id="accept" disabled>ACCEPT HANDOFF</button><button disabled>Divert</button></div>
+      </div>
+      <div class="sim">SIMULATION · synthetic vitals · no real patient data</div>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let hrNow = 80, phase = 0;
+const cv = $('ecg'), ctx = cv.getContext('2d'); let x = 0; const H = cv.height, W = cv.width;
+function grid() { ctx.fillStyle = '#0b0f14'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#162029'; ctx.lineWidth = 1; for (let i = 0; i < W; i += 14) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); } for (let j = 0; j < H; j += 14) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(W, j); ctx.stroke(); } }
+grid();
+let lastY = H * 0.6;
+function beat(t) { // one PQRST shape, t in 0..1 of a cycle
+  if (t < .10) return Math.sin(t / .10 * Math.PI) * 6;           // P
+  if (t < .16) return 0;
+  if (t < .19) return -(t - .16) / .03 * 10;                      // Q
+  if (t < .23) return -10 + (t - .19) / .04 * 70;                 // R up
+  if (t < .27) return 60 - (t - .23) / .04 * 82;                  // R down to S
+  if (t < .31) return -22 + (t - .27) / .04 * 22;                 // back
+  if (t < .45) return 0;
+  if (t < .65) return Math.sin((t - .45) / .20 * Math.PI) * 12;   // T
+  return 0;
+}
+function drawEcg() {
+  const px = 2; const cycleLen = Math.max(40, 60 / Math.max(40, hrNow) * 110); // px per beat
+  for (let k = 0; k < px; k++) {
+    phase = (phase + 1 / cycleLen) % 1;
+    const y = H * 0.6 - beat(phase);
+    ctx.fillStyle = '#0b0f14'; ctx.fillRect(x, 0, 12, H);
+    ctx.strokeStyle = '#162029'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    ctx.strokeStyle = '#3ddc84'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 1, lastY); ctx.lineTo(x, y); ctx.stroke();
+    lastY = y; x = (x + 1) % W; if (x === 0) lastY = y;
+  }
+  requestAnimationFrame(drawEcg);
+}
+drawEcg();
+
+function render(st) {
+  markScenario(st);
+  if (!st || !st.severity) { $('head').innerHTML = '<div class="sim">Waiting for a triaged incident…</div>'; $('accept').disabled = true; return; }
+  const d = st.decision, h = st.hospitals[d.hospital], v = st.vitals;
+  hrNow = v.hr;
+  $('hosp').textContent = `${h.short.toUpperCase()} · ${st.need.toUpperCase()} ER`;
+  $('eta').textContent = st.status === 'arrived' || st.status === 'handed_over' ? 'ARRIVED' : (st.eta_left_min != null ? fmtClock(st.eta_left_min * 60) : `${d.eta_min} min`);
+  $('head').innerHTML = `<div class="row" style="align-items:center;gap:10px"><span class="badge ${st.severity}">${st.severity} ${{ P1: 'CRITICAL', P2: 'SERIOUS', P3: 'MINOR' }[st.severity]}</span><b>${st.patient.id}</b><span class="sim">${st.patient.sex} · ${st.patient.age} · ${st.patient.blood}</span></div>
+    <div style="color:var(--ink2);margin-top:8px">${esc(st.report.text)}</div><div class="sim" style="margin-top:4px">Arriving by ${d.mode} from ${esc(st.scenario.location)}.</div>`;
+  $('hr').textContent = v.hr; $('bp').textContent = `${v.sbp}/${v.dbp}`; $('spo2').textContent = v.spo2; $('rr').textContent = v.rr;
+  $('hr').className = 'v ' + (v.hr > 110 ? 'amber' : ''); $('spo2').className = 'v ' + (v.spo2 < 94 ? 'red' : '');
+  $('timeline').innerHTML = st.timeline.map(e => `<div class="ev"><span class="t">${fmtT(e.t)}</span><span>${esc(e.event)}${e.detail ? ` <span class="sim">· ${esc(e.detail)}</span>` : ''}</span></div>`).join('');
+  $('f_id').value = st.patient.id; $('f_mech').value = st.report.text.split('.')[0]; $('f_blood').value = st.patient.blood;
+  $('f_tri').value = `${st.severity} · ${st.need}`; $('f_mode').value = `${d.mode} · ${d.chosen} · ETA ${d.eta_min} min`;
+  $('f_req').value = { neuro: 'Trauma bay · CT head · neurosurgery on call', ortho: 'Ortho bay · X-ray · splint', trauma: 'Trauma bay · FAST scan', general: 'Minor injuries · wound care' }[st.need];
+  $('accept').disabled = st.status === 'handed_over' || st.status === 'reported';
+  $('accept').textContent = st.status === 'handed_over' ? 'HANDOFF ACCEPTED' : 'ACCEPT HANDOFF';
+}
+$('accept').onclick = () => post('/incident/handoff', {});
+mountTopbar('er').then(() => startPolling(render));
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SaveAlife BLR — Bystander</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+<style>
+  .topbar { padding: 0 12px; gap: 10px; } .brand { font-size: 16px; } .crumb { display: none; }
+  .scenarios button { padding: 0 8px; } .scenarios button.on { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav a { margin-left: 8px; font-size: 10px; }
+  .alert { margin: 12px 18px 0; padding: 12px 14px; border-radius: 10px; display: flex; gap: 12px; align-items: center; }
+  .alert.P1 { background: #2a1416; border: 1px solid var(--red); } .alert.P2 { background: #2a2214; border: 1px solid var(--amber); } .alert.P3 { background: #141e2a; border: 1px solid #2b6cb0; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <a class="brand" href="index.html" style="text-decoration:none">SaveAlife <span>BLR</span></a>
+    <div class="scenarios" id="scenarios"></div>
+    <div class="right" style="gap:8px"><nav class="nav"><a data-page="home" href="index.html">Home</a><a data-page="bystander" href="bystander.html">Bystander</a><a data-page="dispatch" href="dispatch.html">Dispatch</a><a data-page="er" href="er.html">ER</a></nav><div style="text-align:right"><div class="kicker" style="font-size:9px">Golden hour</div><div class="big amber" id="golden" style="font-size:20px">60:00</div></div></div>
+  </div>
+
+  <div id="alert" class="alert" style="display:none"></div>
+
+  <div class="pad" id="form">
+    <div class="kicker" style="margin-top:14px">Report an accident</div>
+    <div class="stack" style="gap:8px; margin-top:6px">
+      <label>Where <input id="where" readonly></label>
+      <label>What happened <textarea id="text" rows="3"></textarea></label>
+      <div class="row">
+        <label class="grow">How many hurt <input id="count" type="number" min="1" value="1"></label>
+        <label class="grow">Awake? <select id="conscious"><option value="true">Yes</option><option value="false">No</option></select></label>
+      </div>
+      <div class="row">
+        <label class="grow">Breathing? <select id="breathing"><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label class="grow">Bleeding? <select id="bleeding"><option value="false">No</option><option value="true">Yes</option></select></label>
+      </div>
+      <div class="kicker" style="margin-top:6px">Add a photo of the scene</div>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="sim" id="photoNote">Tap a photo. It is analysed on the server and never shown to the hospital.</div>
+      <button class="danger" id="send" style="height:52px;font-size:14px">SEND REPORT</button>
+    </div>
+  </div>
+
+  <div class="pad" id="after" style="display:none">
+    <div class="kicker" style="margin-top:14px">Your report</div>
+    <div class="card" id="summary" style="margin-top:6px; color:var(--ink2)"></div>
+    <div class="row" style="justify-content:space-between; align-items:baseline; margin-top:14px">
+      <div class="kicker">Do this now</div><div class="sim" id="progress" style="color:var(--green)"></div>
+    </div>
+    <div class="stack" id="checklist" style="gap:6px; margin-top:6px"></div>
+    <div class="card row" style="margin-top:14px; align-items:center; border-style:dashed">
+      <div style="width:52px;height:36px;border-radius:6px;background:var(--amber);display:grid;place-items:center;font:700 9px var(--mono);color:var(--bg)">DEMO ID</div>
+      <div style="color:var(--ink2)">Ravi Demo · SAL-DEMO-0001<br><span class="sim">Blood O+ · sent to ER</span></div>
+    </div>
+  </div>
+
+  <div class="pad" style="margin-top:auto; padding-bottom:18px; padding-top:14px">
+    <div class="sim" style="text-align:center">SIMULATION · no real identity or health data</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let photoSent = false, picked = null, lastId = null;
+const $ = id => document.getElementById(id);
+
+function fillForm(st) {
+  $('where').value = `${st.scenario.location} · ${st.scenario.time}`;
+  $('text').value = st.report.text; $('count').value = st.report.count;
+  $('conscious').value = String(st.report.conscious); $('breathing').value = String(st.report.breathing); $('bleeding').value = String(st.report.bleeding);
+  const s = st.scenario.id.toLowerCase();
+  const types = ['wide scene', 'patient', 'vehicles', 'traffic behind', 'landmark'];
+  $('thumbs').innerHTML = [1, 2, 3, 4, 5].map(i => `<img src="img/scene-${s}-${i}.png" alt="${types[i-1]}" title="${types[i-1]}" data-src="img/scene-${s}-${i}.png" onerror="this.style.opacity=.15">`).join('');
+  $('thumbs').onclick = async e => {
+    const img = e.target.closest('img'); if (!img) return;
+    document.querySelectorAll('#thumbs img').forEach(i => i.classList.toggle('on', i === img));
+    picked = img.dataset.src;
+    $('photoNote').textContent = 'Analysing photo…';
+    const blob = await (await fetch(picked)).blob();
+    const fd = new FormData(); fd.append('file', blob, picked.split('/').pop());
+    const r = await fetch('/api/incident/photo', { method: 'POST', body: fd });
+    const st2 = await r.json();
+    photoSent = true;
+    const pr = st2.photo_read || {};
+    $('photoNote').textContent = `Photo read: ${pr.patient_posture || '?'}, traffic ${pr.traffic_density || '?'}, ${(pr.vehicles || []).join(' + ')}.`;
+  };
+}
+
+$('send').onclick = async () => {
+  $('send').disabled = true; $('send').textContent = 'SENDING…';
+  await post('/incident/report', { text: $('text').value, count: +$('count').value, conscious: $('conscious').value === 'true', breathing: $('breathing').value === 'true', bleeding: $('bleeding').value === 'true' });
+  $('send').disabled = false; $('send').textContent = 'SEND REPORT';
+};
+
+function render(st) {
+  markScenario(st);
+  if (!st) { $('form').style.display = 'none'; $('after').style.display = 'none'; $('alert').style.display = 'none'; return; }
+  if (st.id !== lastId) { lastId = st.id; photoSent = false; picked = null; fillForm(st); }
+  const triaged = st.status !== 'reported';
+  $('form').style.display = triaged ? 'none' : ''; $('after').style.display = triaged ? '' : 'none';
+  const a = $('alert');
+  if (triaged) {
+    const d = st.decision; const label = { P1: 'CRITICAL', P2: 'SERIOUS', P3: 'MINOR' }[st.severity];
+    const line = st.status === 'triaged' ? 'Dispatcher is confirming…' : st.status === 'arrived' ? 'Ambulance crew is with the patient.' :
+      `${d.mode === 'air' ? 'Air ambulance' : 'Road ambulance'} · ${st.eta_left_min != null ? `arrives in ${Math.ceil(st.eta_left_min)} min` : `${d.eta_min} min`}`;
+    a.style.display = ''; a.className = 'alert ' + st.severity;
+    a.innerHTML = `<span class="badge ${st.severity}">${st.severity}</span><div><b>Help is on the way.</b><br><span style="color:var(--ink2)">${esc(line)}</span></div>`;
+    $('summary').innerHTML = `<div><span class="sim">Where</span> &nbsp;${esc(st.scenario.location)}</div><div><span class="sim">What</span> &nbsp;&nbsp;${esc(st.report.text)}</div><div><span class="sim">Triage</span> ${esc(st.triage_reasons.join(' · '))}</div>`;
+    const done = st.checklist.filter(c => c.done).length, next = st.checklist.findIndex(c => !c.done);
+    $('progress').textContent = `${done} of ${st.checklist.length} done · ER can see this`;
+    $('checklist').innerHTML = st.checklist.map((c, i) => `<label class="check ${c.done ? 'done' : ''} ${i === next ? 'next' : ''}"><input type="checkbox" data-i="${i}" ${c.done ? 'checked' : ''}><span style="font-size:12px;color:var(--ink)">${esc(c.text)}</span></label>`).join('');
+    $('checklist').onchange = e => { const cb = e.target; post('/incident/checklist', { index: +cb.dataset.i, done: cb.checked }); };
+  } else a.style.display = 'none';
+}
+mountTopbar('bystander').then(() => startPolling(render));
+</script>
+</body>
+</html>

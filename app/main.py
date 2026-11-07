@@ -4,13 +4,21 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.routers.api import router as api_router
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="SaveAlife BLR", version="0.1.0")
+app = FastAPI(title="SaveAlife BLR", version="0.2.0")
+app.include_router(api_router)
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse("/ui/")
 
 
 @app.get("/health")

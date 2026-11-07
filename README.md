@@ -14,7 +14,25 @@ uvicorn app.main:app --reload
 pytest -q
 ```
 
-UI at http://127.0.0.1:8000/ui/ — health at /health — config at /config/check.
+UI at http://127.0.0.1:8000/ui/ — open the three screens in separate windows:
+
+- `/ui/bystander.html` — report the accident, add a scene photo, follow the checklist
+- `/ui/dispatch.html` — map, agent trace, confirm or override, watch the vehicle move
+- `/ui/er.html` — vitals, ECG, timeline, prefilled intake, accept handoff
+
+Pick a scenario (S1–S5) on any screen; all three follow the same active incident.
+`SIMULATION=true` (default) uses canned camera counts, route times and photo reads so the demo runs offline.
+Health at `/health`, config at `/config/check`, API under `/api/`.
+
+## Scenarios
+
+| | Traffic | Severity | Expected decision |
+| --- | --- | --- | --- |
+| S1 | One route jammed | P2 | Road via the open route, corridor |
+| S2 | All routes jammed | P1 | Air — every road fails the 20 min window |
+| S3 | All routes jammed (same crash as S2) | P3 | Road, slowest acceptable, no corridor |
+| S4 | Clear | P1 | Road, nearest neuro hospital, corridor anyway |
+| S5 | All jammed, clears mid-trip | P2 | Road with corridor, ETA re-evaluated live |
 
 ## Privacy and human review
 

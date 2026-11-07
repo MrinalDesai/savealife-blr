@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SaveAlife BLR — Dispatch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  .camstrip { position:absolute; left:10px; right:10px; bottom:10px; z-index:500; display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+  .cam { background:rgba(14,20,27,.94); border:1px solid var(--line); border-radius:8px; padding:6px 8px; min-height:104px; display:flex; flex-direction:column; gap:3px; }
+  .cam .feed { flex:1; border-radius:4px; background:repeating-linear-gradient(135deg,#121a23 0 6px,#0e141b 6px 12px); display:grid; place-items:center; font-size:9px; color:var(--dim); position:relative; min-height:48px; }
+  .cam .feed::before { content:'REC'; position:absolute; top:3px; left:5px; color:var(--red2); font-size:8px; font-weight:700; }
+  .cam .feed .dot { width:10px; height:10px; border-radius:50%; position:absolute; top:4px; right:5px; }
+  .cam .n { font-size:10px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cam .c { font-size:10px; display:flex; justify-content:space-between; }
+  .cam.free .dot, .lv-free { background:#3ddc84; color:#3ddc84 } .cam.slow .dot, .lv-slow { background:#ffb454; color:#ffb454 } .cam.jammed .dot, .lv-jammed { background:#e5484d; color:#e5484d }
+  .cam.onroute { border-color:var(--amber); }
+  .cam-badge.free { color:#3ddc84; border-color:#3ddc84 } .cam-badge.slow { color:#ffb454; border-color:#ffb454 } .cam-badge.jammed { color:#e5484d; border-color:#e5484d }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="brand" href="index.html" style="text-decoration:none">SaveAlife <span>BLR</span></a>
+    <div class="crumb">DISPATCH</div>
+    <div class="scenarios" id="scenarios"></div>
+    <button id="canned" title="Send the scenario's canned bystander report (demo shortcut)" style="min-height:28px;height:28px;font-size:11px">Send canned report</button>
+    <div class="right">
+      <span class="kicker">Golden hour</span>
+      <div class="big amber" id="golden">60:00</div>
+      <div class="bar"><i id="goldenbar" style="width:100%"></i></div>
+      <nav class="nav"><a data-page="home" href="index.html">Home</a><a data-page="bystander" href="bystander.html">Bystander</a><a data-page="dispatch" href="dispatch.html">Dispatch</a><a data-page="er" href="er.html">ER</a></nav>
+    </div>
+  </div>
+  <div style="flex:1; display:flex; min-height:0">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-tools">
+        <button id="tileLight" class="on">Light</button>
+        <button id="tileDark">Dark</button>
+      </div>
+      <div class="legend" style="flex-direction:column; gap:4px; bottom:128px">
+        <div class="kicker" style="font-size:9px">Routes</div>
+        <div style="display:flex;gap:12px"><span><i style="background:#1f6feb;height:5px"></i>taken route</span><span><i style="background:#e5484d"></i>rejected route</span><span><i style="background:#9aa4b2"></i>not yet evaluated</span><span><i style="background:#1f6feb;height:0;border-top:3px dashed #1f6feb"></i>air (taken)</span></div>
+        <div class="kicker" style="font-size:9px;margin-top:4px">Traffic cameras · vehicles in view</div>
+        <div style="display:flex;gap:12px"><span><b style="color:#3ddc84">●</b> free &lt;80</span><span><b style="color:#ffb454">●</b> slow 80–160</span><span><b style="color:#e5484d">●</b> jammed &gt;160</span><span>◉ incident</span><span>🚑 108 station</span><span>🚁 air base</span><span>H ⊕ helipad</span><span><i style="background:#9aa4b2;height:0;border-top:2px dotted #9aa4b2"></i>response leg</span></div>
+      </div>
+      <div class="camstrip" id="camstrip"></div>
+    </div>
+    <div class="stack" style="flex:1; padding:14px; overflow:hidden">
+      <div class="card" id="patient"><div class="sim">No active incident. Pick a scenario above, or report one from the Bystander page.</div></div>
+      <div class="card stack" style="flex:1; min-height:0; gap:8px">
+        <div class="kicker">Dispatch agent · Granite 4 · watsonx Orchestrate</div>
+        <div class="trace grow" id="trace"></div>
+        <div class="row">
+          <button class="primary grow" id="confirm" disabled>CONFIRM DISPATCH</button>
+          <button id="override" disabled>Override → road</button>
+        </div>
+        <div class="sim">Human review required before any air dispatch or corridor request.</div>
+      </div>
+      <div class="card" id="corridor" style="display:none"></div>
+      <div class="card row" style="justify-content:space-between; align-items:center">
+        <div><div class="kicker">Minutes saved vs default route</div><div class="big green" id="saved" style="font-size:34px">—</div></div>
+        <div style="text-align:right"><div class="kicker">Arrival in</div><div class="big" id="eta" style="font-size:20px">—</div></div>
+      </div>
+      <div class="sim">SIMULATION · synthetic traffic, cameras and vitals · no real identity or health data</div>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="app.js"></script>
+<script>
+const tiles = {
+  light: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }),
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap &copy; CARTO' }),
+};
+const map = L.map('map', { zoomControl: false, layers: [tiles.light] }).setView([12.925, 77.63], 13);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+document.getElementById('tileLight').onclick = () => { map.removeLayer(tiles.dark); tiles.light.addTo(map); toggleTile('tileLight'); };
+document.getElementById('tileDark').onclick = () => { map.removeLayer(tiles.light); tiles.dark.addTo(map); toggleTile('tileDark'); };
+function toggleTile(id) { ['tileLight', 'tileDark'].forEach(i => document.getElementById(i).classList.toggle('on', i === id)); }
+
+const layer = L.layerGroup().addTo(map);
+let drawnFor = null, routeLines = {}, casings = {}, respLines = {}, airLine = null, vehicle = null, camMarkers = {}, hospMarkers = {};
+
+function divIcon(html, cls) { return L.divIcon({ html, className: '', iconSize: null }); }
+
+function drawStatic(st) {
+  layer.clearLayers(); routeLines = {}; casings = {}; respLines = {}; camMarkers = {}; hospMarkers = {}; airLine = null; vehicle = null;
+  const sc = st.scenario;
+  L.circleMarker([sc.lat, sc.lng], { radius: 9, color: '#e5484d', fillColor: '#e5484d', fillOpacity: .9, weight: 2 }).addTo(layer)
+    .bindTooltip(`INCIDENT · ${esc(sc.location)} · ${sc.time}`, { permanent: true, direction: 'bottom', className: 'cam-badge', offset: [0, 8] });
+  for (const cam of st.cameras) {
+    camMarkers[cam.id] = L.marker([cam.lat, cam.lng], { icon: divIcon(`<div class="cam-badge ${cam.level}" id="j-${cam.id}">📷 ${esc(cam.name)} · ${cam.count}</div>`) }).addTo(layer);
+  }
+  for (const [k, x] of Object.entries(st.stations)) {
+    L.marker([x.lat, x.lng], { icon: divIcon(`<div class="hosp-badge" id="s-${k}">🚑 ${esc(x.name.replace('108 base · ', ''))}</div>`) }).addTo(layer);
+  }
+  L.marker([st.air_base.lat, st.air_base.lng], { icon: divIcon(`<div class="hosp-badge" id="s-AIR">🚁 ${esc(st.air_base.name.replace('Air ambulance · ', ''))}</div>`) }).addTo(layer);
+  for (const [k, h] of Object.entries(st.hospitals)) {
+    hospMarkers[k] = L.marker([h.lat, h.lng], { icon: divIcon(`<div class="hosp-badge" id="h-${k}">H ${esc(h.short)}${h.helipad ? ' ⊕' : ''}</div>`) }).addTo(layer);
+  }
+  const routes = st.decision ? st.decision.routes : st.candidate_routes;
+  for (const r of routes) {
+    casings[r.id] = L.polyline(r.points, { color: '#ffffff', weight: 9, opacity: .9 }).addTo(layer);
+    routeLines[r.id] = L.polyline(r.points, { color: '#9aa4b2', weight: 5, opacity: .85 }).addTo(layer)
+      .bindTooltip(st.decision ? `${r.id} · ${r.eta_min} min` : `${r.id} · ${st.hospitals[r.hospital].short} · base ${r.base_min} min`, { permanent: true, direction: 'center', className: 'cam-badge' });
+  }
+  if (st.decision) {
+    for (const x of st.decision.stations) {
+      respLines[x.id] = L.polyline(x.points, { color: '#9aa4b2', weight: 2, dashArray: '2 6', opacity: x.busy ? .25 : .6 }).addTo(layer);
+    }
+    if (st.decision.air) {
+      casings.AIR = L.polyline(st.decision.air.points, { color: '#ffffff', weight: 8, opacity: 0 }).addTo(layer);
+      airLine = L.polyline(st.decision.air.points, { color: '#1f6feb', weight: 4, dashArray: '10 8', opacity: 0 }).addTo(layer);
+      respLines.AIR = L.polyline(st.decision.air.response_points, { color: '#1f6feb', weight: 3, dashArray: '2 6', opacity: 0 }).addTo(layer);
+    }
+  }
+  const b = L.latLngBounds([[sc.lat, sc.lng]]);
+  routes.forEach(r => r.points.forEach(p => b.extend(p)));
+  Object.values(st.stations).forEach(x => b.extend([x.lat, x.lng]));
+  map.fitBounds(b.pad(0.15));
+  drawnFor = st.id + ':' + (st.decision ? 'd' : 'n');
+}
+
+function drawDynamic(st) {
+  const d = st.decision; if (!d) return;
+  for (const r of d.routes) {
+    const line = routeLines[r.id]; if (!line) continue;
+    const chosen = d.chosen === r.id;
+    line.setStyle({ color: chosen ? '#1f6feb' : '#e5484d', weight: chosen ? 7 : 4, opacity: chosen ? 1 : .8, dashArray: chosen ? null : '8 6' });
+    if (casings[r.id]) casings[r.id].setStyle({ weight: chosen ? 11 : 7, opacity: chosen ? .95 : .6 });
+    line.setTooltipContent(`${r.id} · ${r.eta_min} min${r.passes ? (chosen ? ' ✓' : '') : ' ✕ rejected'}`);
+  }
+  if (airLine) { airLine.setStyle({ opacity: d.mode === 'air' ? 1 : 0 }); casings.AIR.setStyle({ opacity: d.mode === 'air' ? .9 : 0 }); }
+  for (const x of d.stations) {
+    const el = document.getElementById('s-' + x.id); if (!el) continue;
+    const chosenSt = d.mode === 'road' && d.station === x.id;
+    el.classList.toggle('match', chosenSt); el.classList.toggle('dim', x.busy || (!chosenSt && d.mode === 'road'));
+    el.textContent = `🚑 ${x.name.replace('108 base · ', '')} · ${x.busy ? 'busy' : x.response_min + ' min'}${chosenSt ? ' ✓' : ''}`;
+    if (respLines[x.id]) respLines[x.id].setStyle({ color: chosenSt ? '#1f6feb' : '#9aa4b2', weight: chosenSt ? 4 : 2, opacity: chosenSt ? 1 : (x.busy ? .2 : .5) });
+  }
+  const airEl = document.getElementById('s-AIR');
+  if (airEl) { airEl.classList.toggle('match', d.mode === 'air'); airEl.classList.toggle('dim', d.mode !== 'air'); if (d.air) airEl.textContent = `🚁 HAL Airport · ${d.air.response_min} min${d.mode === 'air' ? ' ✓' : ''}`; }
+  if (respLines.AIR) respLines.AIR.setStyle({ opacity: d.mode === 'air' ? 1 : 0 });
+  for (const [k, h] of Object.entries(st.hospitals)) {
+    const el = document.getElementById('h-' + k); if (!el) continue;
+    el.classList.toggle('match', k === d.hospital);
+    el.classList.toggle('dim', !(st.need && h.specialties.includes(st.need)));
+  }
+  const onRoute = new Set(d.routes.flatMap(r => r.via));
+  for (const cam of st.cameras) { const el = document.getElementById('j-' + cam.id); if (el) { el.textContent = `📷 ${cam.name} · ${cam.count}`; el.className = 'cam-badge ' + cam.level; } }
+  (d.corridor || []).forEach(c => { const el = document.getElementById('j-' + c.junction); if (el && c.state === 'green') el.textContent = `🟢 ${c.name} · corridor`; });
+  // vehicle
+  if (st.progress > 0 && st.status !== 'handed_over') {
+    const leg1 = d.mode === 'air' ? d.air.response_points : (d.stations.find(x => x.id === d.station) || { points: null }).points;
+    const leg2 = d.mode === 'air' ? d.air.points : d.routes.find(r => r.id === d.chosen).points;
+    const split = 0.3; // first 30 % of the animation is the response leg
+    const p = (leg1 && st.progress < split) ? alongLine(leg1, st.progress / split) : alongLine(leg2, leg1 ? (st.progress - split) / (1 - split) : st.progress);
+    const glyph = d.mode === 'air' ? '🚁' : '🚑';
+    if (!vehicle) vehicle = L.marker([p.lat, p.lng], { icon: divIcon(`<div class="veh">${glyph}</div>`), zIndexOffset: 1000 }).addTo(layer);
+    vehicle.setLatLng([p.lat, p.lng]);
+  }
+}
+
+function renderCams(st) {
+  const el = document.getElementById('camstrip'); if (!st) { el.innerHTML = ''; return; }
+  const onRoute = new Set(st.decision ? st.decision.routes.flatMap(r => r.via) : []);
+  el.innerHTML = st.cameras.map(c => `<div class="cam ${c.level} ${onRoute.has(c.id) ? 'onroute' : ''}" title="Fixed traffic camera at ${esc(c.name)}">
+    <div class="n">📷 ${c.id} · ${esc(c.name)}</div>
+    <div class="feed"><span class="dot"></span>placeholder feed</div>
+    <div class="c"><span>${c.count} veh</span><b class="lv-${c.level}" style="background:none">${c.level.toUpperCase()}</b></div></div>`).join('');
+}
+function render(st) {
+  markScenario(st); renderCams(st);
+  const patient = document.getElementById('patient'), trace = document.getElementById('trace');
+  const confirm = document.getElementById('confirm'), override = document.getElementById('override');
+  if (!st) { patient.innerHTML = '<div class="sim">No active incident. Pick a scenario above.</div>'; renderTrace(trace, null); confirm.disabled = override.disabled = true; return; }
+  const key = st.id + ':' + (st.decision ? 'd' : 'n');
+  if (key !== drawnFor) drawStatic(st);
+  drawDynamic(st);
+  const sev = st.severity ? `<span class="badge ${st.severity}">${st.severity} ${{ P1: 'CRITICAL', P2: 'SERIOUS', P3: 'MINOR' }[st.severity]}</span>` : '<span class="pill">awaiting triage</span>';
+  patient.innerHTML = `<div class="row" style="align-items:center;gap:10px">${sev}<b>${st.patient.id}</b><span class="sim">${st.patient.sex} · ${st.patient.age}</span>
+     <span class="pill" style="margin-left:auto">${esc(st.status)}</span></div>
+     <div style="color:var(--ink2);margin-top:8px">${esc(st.report.text)}</div>
+     ${st.photo_read ? `<div class="sim" style="margin-top:6px">Photo: ${esc(st.photo_read.patient_posture)}, traffic ${esc(st.photo_read.traffic_density)}, ${esc((st.photo_read.vehicles||[]).join(' + '))}</div>` : ''}`;
+  renderTrace(trace, st.decision && st.decision.trace);
+  const canConfirm = st.status === 'triaged';
+  confirm.disabled = !canConfirm;
+  override.disabled = !(canConfirm && st.decision && st.decision.mode === 'air');
+  confirm.textContent = canConfirm ? `CONFIRM ${st.decision.mode.toUpperCase()} DISPATCH` : (st.status === 'reported' ? 'WAITING FOR REPORT' : `${st.status.toUpperCase().replace('_', ' ')}`);
+  const cor = document.getElementById('corridor');
+  if (st.decision && st.decision.corridor && st.decision.corridor.length) {
+    cor.style.display = '';
+    cor.innerHTML = `<div class="kicker">Green corridor</div>` + st.decision.corridor.map(c =>
+      `<div class="row" style="justify-content:space-between;padding:4px 0"><span>${esc(c.name)}</span><span class="pill ${c.state === 'green' ? 'green' : c.state === 'holding' ? 'amber' : ''}">${c.state} · T+${c.hold_from_min}–${c.hold_to_min} min</span></div>`).join('');
+  } else cor.style.display = 'none';
+  document.getElementById('saved').textContent = st.decision ? st.decision.minutes_saved : '—';
+  document.getElementById('eta').textContent = st.eta_left_min != null ? `${st.eta_left_min} min` : (st.decision ? `${st.decision.eta_min} min` : '—');
+}
+
+document.getElementById('canned').onclick = async () => { const st = await api('/incident/state').catch(()=>null); if (!st) return alert('Pick a scenario first'); await post('/incident/photo_sim', {}); await post('/incident/report', st.report); };
+document.getElementById('confirm').onclick = () => post('/incident/confirm', {});
+document.getElementById('override').onclick = () => post('/incident/confirm', { override_road: true });
+mountTopbar('dispatch').then(() => startPolling(render));
+</script>
+</body>
+</html>
