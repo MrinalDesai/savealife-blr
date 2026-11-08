@@ -296,6 +296,15 @@ class Incident:
         self.agent: dict = {}
         self.log("Bystander report received", sc["location"])
 
+    def log_once(self, key: str, event: str, detail: str = "") -> None:
+        """Log an event once per incident; later calls update the detail in place."""
+        for e in self.timeline:
+            if e.get("key") == key:
+                e["detail"] = detail
+                return
+        self.log(event, detail)
+        self.timeline[-1]["key"] = key
+
     def log(self, event: str, detail: str = "") -> None:
         self.timeline.append({"t": round(time.time() - self.created_at, 1), "event": event, "detail": detail})
 
@@ -341,7 +350,7 @@ class Incident:
     def tick_checklist(self, index: int, done: bool) -> None:
         self.checklist[index]["done"] = done
         if done:
-            self.log("Bystander ✓ " + self.checklist[index]["text"])
+            self.log_once(f"tick-{index}", "Bystander ✓ " + self.checklist[index]["text"])
 
     def handoff(self) -> None:
         self.status = "handed_over"

@@ -99,3 +99,14 @@ def test_hospitals_vary_across_scenarios():
         st = c.post("/api/incident/new", json={"scenario": sid}).json()
         seen.add(c.post("/api/incident/report", json=st["report"]).json()["decision"]["hospital"])
     assert len(seen) >= 4
+
+
+def test_photo_and_ticks_log_once():
+    c.post("/api/incident/new", json={"scenario": "S2"})
+    for _ in range(3):
+        c.post("/api/incident/photo_sim")
+    for d in (True, False, True):
+        c.post("/api/incident/checklist", json={"index": 0, "done": d})
+    tl = c.get("/api/incident/state").json()["timeline"]
+    assert sum(e["event"] == "Scene photo analysed" for e in tl) == 1
+    assert sum(e["event"].startswith("Bystander \u2713 Do not move") for e in tl) == 1

@@ -93,7 +93,7 @@ async def incident_photo(file: UploadFile = File(...)) -> dict:
             inc.photo_read["source"] = settings.watsonx_vision_model
         except json.JSONDecodeError:
             raise HTTPException(502, f"vision model returned non-JSON: {out[:120]}")
-    inc.log("Scene photo analysed", f"posture {inc.photo_read.get('patient_posture')}, traffic {inc.photo_read.get('traffic_density')}")
+    inc.log_once("photo", "Scene photo analysed", f"posture {inc.photo_read.get('patient_posture')}, traffic {inc.photo_read.get('traffic_density')}")
     if inc.status != "reported":
         inc.run_triage()
     return inc.state()
@@ -105,7 +105,7 @@ def incident_photo_sim() -> dict:
     inc = _inc()
     inc.photo_read = dict(inc.scenario["photo_read"]); inc.photo_read["source"] = "simulated"
     inc.photo_file = f"scene-{inc.scenario['id'].lower()}-1.png"
-    inc.log("Scene photo analysed", f"posture {inc.photo_read.get('patient_posture')}, traffic {inc.photo_read.get('traffic_density')}")
+    inc.log_once("photo", "Scene photo analysed", f"posture {inc.photo_read.get('patient_posture')}, traffic {inc.photo_read.get('traffic_density')}")
     return inc.state()
 
 
