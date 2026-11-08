@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 uploads/
 *.log
+wxo_diag.txt
