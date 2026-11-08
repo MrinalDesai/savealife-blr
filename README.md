@@ -26,14 +26,14 @@ Health at `/health`, config at `/config/check`, API under `/api/`.
 
 ## Scenarios
 
-| | Traffic | Severity | Expected decision |
+Six fixed traffic cameras report LOW / HIGH / BLOCKED. Ambulances come from the chosen hospital and return to it; the helicopter flies HAL → scene → helipad hospital → HAL. A human dispatcher confirms before anything moves.
+
+| | Cameras | Severity | Expected decision |
 | --- | --- | --- | --- |
-| S1 | One route jammed | P2 | Road via the open route, corridor |
-| S2 | All routes jammed | P1 | Air — every road fails the 20 min window |
-| S3 | All routes jammed (same crash as S2) | P3 | Road, slowest acceptable, no corridor |
-| S4 | Clear | P1 | Road, nearest neuro hospital, corridor anyway |
-| S5 | All jammed, clears mid-trip | P2 | Road with corridor, ETA re-evaluated live |
+| S1 Silk Board | Madiwala BLOCKED (stalled truck), Koramangala HIGH | P2 | A rejected (blocked) → road B from St John's, corridor |
+| S2 ORR Agara | Agara BLOCKED (the crash), all others HIGH | P1 | A blocked, B/C outside 25 min → air, HAL → St John's |
+| S3 ORR Agara | identical to S2 | P3 | road B from St John's, no corridor |
+| S4 Hosur Rd | all LOW | P1 | road A from St John's, corridor anyway |
+| S5 Sarjapur Rd | HIGH, clears mid-trip | P2 | road A with corridor, passes by 1 min, ETA revised live |
 
-## Privacy and human review
-
-All patient data in this prototype is synthetic. The dispatch agent recommends; a human dispatcher confirms before any air dispatch or corridor request. Injury photos are analysed server-side and never shown to the hospital; only the structured read is forwarded.
+Real road geometry and live times come from the Google Routes API (`python scripts/fetch_routes.py`, cached in `data/routes_cache.json`).

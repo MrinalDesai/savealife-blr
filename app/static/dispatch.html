@@ -7,16 +7,66 @@
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="style.css">
 <style>
+  /* map markers */
+  .mk { font: 600 10px var(--mono); white-space: nowrap; }
+  .hosp { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,.96); color:#0b0f14; border:2px solid #9aa4b2; border-radius:7px; padding:2px 7px 2px 3px; box-shadow:0 1px 4px rgba(0,0,0,.35); transition: all .3s; }
+  .hosp .hx { width:16px; height:16px; border-radius:3px; background:#e5484d; color:#fff; display:grid; place-items:center; font:800 11px var(--mono); }
+  .hosp.dim { opacity:.4; } .hosp.match { border-color:#1f6feb; box-shadow:0 0 0 4px rgba(31,111,235,.35), 0 1px 4px rgba(0,0,0,.35); transform:scale(1.12); }
+  .hosp.pulse { animation: pulse 1s ease-in-out infinite; }
+  .camw { display:flex; flex-direction:column; align-items:center; gap:1px; width:44px; }
+  .camdot { width:26px; height:26px; border-radius:50%; border:2px solid #fff; display:grid; place-items:center; box-shadow:0 1px 4px rgba(0,0,0,.5); position:relative; }
+  .camdot svg { width:15px; height:15px; fill:#0b0f14; }
+  .camdot.LOW { background:#3ddc84 } .camdot.HIGH { background:#ffb454 } .camdot.BLOCKED { background:#e5484d; border-color:#ffd0d2 } .camdot.BLOCKED svg { fill:#fff }
+  .camdot.BLOCKED::after { content:'✕'; position:absolute; right:-6px; top:-7px; background:#fff; color:#e5484d; border-radius:50%; width:13px; height:13px; font:800 10px/13px var(--mono); text-align:center; }
+  .camdot.corridor { background:#1f6feb } .camdot.corridor svg { fill:#fff } .camdot.corridor::after { content:'✓'; position:absolute; right:-6px; top:-7px; background:#fff; color:#1f6feb; border-radius:50%; width:13px; height:13px; font:800 10px/13px var(--mono); text-align:center; }
+  .camn { background:rgba(11,15,20,.9); color:#fff; border-radius:4px; padding:0 4px; font:700 9px var(--mono); white-space:nowrap; }
+  .camn.LOW { color:#3ddc84 } .camn.HIGH { color:#ffb454 } .camn.BLOCKED { color:#ff8a8e }
+  .inc { width:26px; height:26px; border-radius:50%; background:#e5484d; border:3px solid #fff; box-shadow:0 0 0 6px rgba(229,72,77,.35); cursor:pointer; }
+  .inc.pulse { animation: pulse .9s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { transform:scale(1) } 50% { transform:scale(1.35) } }
+  .base { background:rgba(11,15,20,.92); color:#a9b7c6; border:1px solid #263241; border-radius:6px; padding:2px 7px; font:600 10px var(--mono); white-space:nowrap; }
+  .base.taken { border-color:#1f6feb; color:#8ab4ff; }
+  .pill-lbl { background:rgba(11,15,20,.94); color:#e6edf3; border:1px solid #263241; border-radius:999px; padding:1px 8px; font:600 10px var(--mono); white-space:nowrap; }
+  .pill-lbl.taken { border-color:#1f6feb; color:#8ab4ff; } .pill-lbl.rej { border-color:#e5484d; color:#ff8a8e; opacity:.9 }
+  .veh { font-size:26px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+  .veh.loaded::after { content:'●'; position:absolute; right:-4px; top:-4px; color:#e5484d; font-size:12px; }
+  /* photo popup */
+  .leaflet-popup-content-wrapper { background:#0e141b; color:#e6edf3; border:1px solid #263241; border-radius:10px; }
+  .leaflet-popup-tip { background:#0e141b; }
+  .photos { display:grid; grid-template-columns:repeat(5,76px); gap:4px; }
+  .photos img { width:76px; height:57px; object-fit:cover; border-radius:4px; border:2px solid transparent; }
+  .photos img.sent { border-color:#3ddc84; }
+  /* album */
+  .album { position:fixed; inset:0; z-index:2000; background:rgba(5,8,12,.94); display:none; flex-direction:column; }
+  .album.open { display:flex; }
+  .album .hd { display:flex; align-items:center; gap:14px; padding:14px 20px; border-bottom:1px solid var(--line2); }
+  .album .hd .x { margin-left:auto; min-height:36px; height:36px; }
+  .album .main { flex:1; display:grid; grid-template-columns:60px 1fr 60px; align-items:center; min-height:0; padding:10px 20px; }
+  .album .main img { max-width:100%; max-height:calc(100vh - 230px); object-fit:contain; border-radius:10px; justify-self:center; border:2px solid #263241; }
+  .album .main img.sent { border-color:#3ddc84; box-shadow:0 0 0 4px rgba(61,220,132,.25); }
+  .album .arrow { min-height:60px; height:60px; width:48px; font-size:22px; padding:0; }
+  .album .strip { display:flex; gap:8px; padding:10px 20px 16px; justify-content:center; }
+  .album .strip img { width:120px; height:90px; object-fit:cover; border-radius:6px; border:2px solid transparent; cursor:pointer; opacity:.7; }
+  .album .strip img.on { opacity:1; border-color:#1f6feb; } .album .strip img.sent { outline:2px solid #3ddc84; outline-offset:1px; }
+  .album .cap { text-align:center; color:var(--ink2); font-size:12px; padding:0 20px 4px; }
+  .photos img { cursor:pointer; }
+  /* panels */
   .camstrip { position:absolute; left:10px; right:10px; bottom:10px; z-index:500; display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
-  .cam { background:rgba(14,20,27,.94); border:1px solid var(--line); border-radius:8px; padding:6px 8px; min-height:104px; display:flex; flex-direction:column; gap:3px; }
-  .cam .feed { flex:1; border-radius:4px; background:repeating-linear-gradient(135deg,#121a23 0 6px,#0e141b 6px 12px); display:grid; place-items:center; font-size:9px; color:var(--dim); position:relative; min-height:48px; }
+  .cam { background:rgba(14,20,27,.95); border:1px solid var(--line); border-radius:8px; padding:6px 8px; min-height:96px; display:flex; flex-direction:column; gap:3px; }
+  .cam .feed { flex:1; border-radius:4px; background:repeating-linear-gradient(135deg,#121a23 0 6px,#0e141b 6px 12px); display:grid; place-items:center; font-size:9px; color:var(--dim); position:relative; min-height:42px; }
   .cam .feed::before { content:'REC'; position:absolute; top:3px; left:5px; color:var(--red2); font-size:8px; font-weight:700; }
-  .cam .feed .dot { width:10px; height:10px; border-radius:50%; position:absolute; top:4px; right:5px; }
   .cam .n { font-size:10px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .cam .c { font-size:10px; display:flex; justify-content:space-between; }
-  .cam.free .dot, .lv-free { background:#3ddc84; color:#3ddc84 } .cam.slow .dot, .lv-slow { background:#ffb454; color:#ffb454 } .cam.jammed .dot, .lv-jammed { background:#e5484d; color:#e5484d }
-  .cam.onroute { border-color:var(--amber); }
-  .cam-badge.free { color:#3ddc84; border-color:#3ddc84 } .cam-badge.slow { color:#ffb454; border-color:#ffb454 } .cam-badge.jammed { color:#e5484d; border-color:#e5484d }
+  .cam .c { font-size:10px; display:flex; justify-content:space-between; font-weight:700; }
+  .cam.LOW .c b { color:#3ddc84 } .cam.HIGH .c b { color:#ffb454 } .cam.BLOCKED .c b { color:#ff8a8e } .cam.BLOCKED { border-color:#e5484d }
+  .legend { bottom:118px; flex-direction:column; gap:4px; }
+  .considered .r { display:flex; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid #141c25; font-size:11px; }
+  .considered .r:last-child { border-bottom:0 }
+  .considered .id { width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-weight:700; flex:none; background:#1c2530; }
+  .considered .r.taken .id { background:#1f6feb; color:#fff } .considered .r.rej .id { background:#2a1416; color:#ff8a8e }
+  .considered .why { color:var(--mute); margin-left:auto; text-align:right; }
+  .phasebar { display:flex; gap:4px; }
+  .phasebar span { flex:1; height:4px; border-radius:2px; background:#1c2530; }
+  .phasebar span.on { background:#1f6feb } .phasebar span.done { background:#3ddc84 }
 </style>
 </head>
 <body>
@@ -36,20 +86,20 @@
   <div style="flex:1; display:flex; min-height:0">
     <div class="map-wrap">
       <div id="map"></div>
-      <div class="map-tools">
-        <button id="tileLight" class="on">Light</button>
-        <button id="tileDark">Dark</button>
-      </div>
-      <div class="legend" style="flex-direction:column; gap:4px; bottom:128px">
+      <div class="map-tools"><button id="tileLight" class="on">Light</button><button id="tileDark">Dark</button></div>
+      <div class="legend">
         <div class="kicker" style="font-size:9px">Routes</div>
-        <div style="display:flex;gap:12px"><span><i style="background:#1f6feb;height:5px"></i>taken route</span><span><i style="background:#e5484d"></i>rejected route</span><span><i style="background:#9aa4b2"></i>not yet evaluated</span><span><i style="background:#1f6feb;height:0;border-top:3px dashed #1f6feb"></i>air (taken)</span></div>
-        <div class="kicker" style="font-size:9px;margin-top:4px">Traffic cameras · vehicles in view</div>
-        <div style="display:flex;gap:12px"><span><b style="color:#3ddc84">●</b> free &lt;80</span><span><b style="color:#ffb454">●</b> slow 80–160</span><span><b style="color:#e5484d">●</b> jammed &gt;160</span><span>◉ incident</span><span>🚑 108 station</span><span>🚁 air base</span><span>H ⊕ helipad</span><span><i style="background:#9aa4b2;height:0;border-top:2px dotted #9aa4b2"></i>response leg</span></div>
+        <div style="display:flex;gap:12px"><span><i style="background:#1f6feb;height:5px"></i>taken</span><span><i style="background:#e5484d"></i>rejected</span><span><i style="background:#9aa4b2"></i>not yet evaluated</span><span><i style="background:#1f6feb;height:0;border-top:3px dashed #1f6feb"></i>air</span></div>
+        <div class="kicker" style="font-size:9px;margin-top:4px">Traffic cameras</div>
+        <div style="display:flex;gap:12px"><span><b style="color:#3ddc84">📷</b> LOW &lt;80 veh</span><span><b style="color:#ffb454">📷</b> HIGH 80–250</span><span><b style="color:#e5484d">📷</b> BLOCKED ✕</span><span><b style="color:#1f6feb">📷</b> corridor held ✓</span></div>
+        <div style="display:flex;gap:12px;margin-top:2px"><span>◉ incident (click for photos)</span><span><b style="background:#e5484d;color:#fff;padding:0 3px;border-radius:2px">H</b> hospital · ⊕ helipad</span><span>🚁 air base</span></div>
       </div>
       <div class="camstrip" id="camstrip"></div>
     </div>
-    <div class="stack" style="flex:1; padding:14px; overflow:hidden">
+
+    <div class="stack" style="flex:1; padding:14px; overflow:hidden; gap:10px">
       <div class="card" id="patient"><div class="sim">No active incident. Pick a scenario above, or report one from the Bystander page.</div></div>
+      <div class="card" style="padding:8px 14px"><div class="row" style="justify-content:space-between;align-items:center"><span class="kicker" id="phaseName">Sequence</span><span class="sim" id="phaseHint"></span></div><div class="phasebar" id="phasebar" style="margin-top:6px"></div></div>
       <div class="card stack" style="flex:1; min-height:0; gap:8px">
         <div class="kicker">Dispatch agent · Granite 4 · watsonx Orchestrate</div>
         <div class="trace grow" id="trace"></div>
@@ -59,16 +109,23 @@
         </div>
         <div class="sim">Human review required before any air dispatch or corridor request.</div>
       </div>
+      <div class="card considered" id="considered" style="display:none"></div>
       <div class="card" id="corridor" style="display:none"></div>
       <div class="card row" style="justify-content:space-between; align-items:center">
-        <div><div class="kicker">Minutes saved vs default route</div><div class="big green" id="saved" style="font-size:34px">—</div></div>
-        <div style="text-align:right"><div class="kicker">Arrival in</div><div class="big" id="eta" style="font-size:20px">—</div></div>
+        <div><div class="kicker">Minutes saved vs default route</div><div class="big green" id="saved" style="font-size:30px">—</div></div>
+        <div style="text-align:right"><div class="kicker">Patient at hospital in</div><div class="big" id="eta" style="font-size:20px">—</div></div>
       </div>
       <div class="sim">SIMULATION · synthetic traffic, cameras and vitals · no real identity or health data</div>
     </div>
   </div>
 </div>
 
+<div class="album" id="album">
+  <div class="hd"><div class="brand" style="font-size:16px">SaveAlife <span>BLR</span></div><div class="kicker" id="albumTitle">Scene photos</div><span class="pill green" style="margin-left:8px">green = photo the bystander sent</span><button class="x" id="albumClose">Close ✕</button></div>
+  <div class="main"><button class="arrow" id="albumPrev">‹</button><img id="albumImg" alt=""><button class="arrow" id="albumNext">›</button></div>
+  <div class="cap" id="albumCap"></div>
+  <div class="strip" id="albumStrip"></div>
+</div>
 <script src="vendor/leaflet.js"></script>
 <script src="app.js"></script>
 <script>
@@ -78,130 +135,179 @@ const tiles = {
 };
 const map = L.map('map', { zoomControl: false, layers: [tiles.light] }).setView([12.925, 77.63], 13);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
-document.getElementById('tileLight').onclick = () => { map.removeLayer(tiles.dark); tiles.light.addTo(map); toggleTile('tileLight'); };
-document.getElementById('tileDark').onclick = () => { map.removeLayer(tiles.light); tiles.dark.addTo(map); toggleTile('tileDark'); };
-function toggleTile(id) { ['tileLight', 'tileDark'].forEach(i => document.getElementById(i).classList.toggle('on', i === id)); }
+document.getElementById('tileLight').onclick = () => { map.removeLayer(tiles.dark); tiles.light.addTo(map); tog('tileLight'); };
+document.getElementById('tileDark').onclick = () => { map.removeLayer(tiles.light); tiles.dark.addTo(map); tog('tileDark'); };
+function tog(id) { ['tileLight', 'tileDark'].forEach(i => document.getElementById(i).classList.toggle('on', i === id)); }
+const CAM_SVG = '<svg viewBox="0 0 24 24"><path d="M4 7h4l2-2h4l2 2h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm8 2.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/></svg>';
+const icon = (html, size, anchor) => L.divIcon({ html, className: '', iconSize: size || null, iconAnchor: anchor });
 
 const layer = L.layerGroup().addTo(map);
-let drawnFor = null, routeLines = {}, casings = {}, respLines = {}, airLine = null, vehicle = null, camMarkers = {}, hospMarkers = {};
+let drawnFor = null, L_routes = {}, L_cas = {}, L_lbl = {}, L_air = {}, vehicle = null, incMarker = null;
+const TYPES = ['Wide scene', 'Patient position', 'Vehicles', 'Traffic behind', 'Landmark'];
+let albumIdx = 0, albumSt = null;
+function openAlbum(i) { albumIdx = i || 0; document.getElementById('album').classList.add('open'); renderAlbum(); }
+function renderAlbum() {
+  const st = albumSt; if (!st) return;
+  const s = st.scenario.id.toLowerCase(), files = [1, 2, 3, 4, 5].map(i => `scene-${s}-${i}.png`);
+  document.getElementById('albumTitle').textContent = `Scene photos · ${st.scenario.id} · ${st.scenario.location} · ${st.scenario.time}`;
+  const img = document.getElementById('albumImg'); img.src = 'img/' + files[albumIdx]; img.className = st.photo_file === files[albumIdx] ? 'sent' : '';
+  const pr = st.photo_read;
+  document.getElementById('albumCap').innerHTML = `<b>${albumIdx + 1}/5 · ${TYPES[albumIdx]}</b>${st.photo_file === files[albumIdx] ? ' · <span style="color:#3ddc84">sent by bystander</span>' : ''}` +
+    (pr ? `<br><span class="sim">Agent read: posture ${esc(pr.patient_posture)}, traffic ${esc(pr.traffic_density)}, ${esc((pr.vehicles || []).join(' + '))}, ${pr.people_count} people${pr.someone_attending ? ', someone attending' : ''}</span>` : '<br><span class="sim">No photo sent yet</span>');
+  document.getElementById('albumStrip').innerHTML = files.map((f, i) => `<img src="img/${f}" class="${i === albumIdx ? 'on' : ''} ${st.photo_file === f ? 'sent' : ''}" data-i="${i}" title="${TYPES[i]}">`).join('');
+}
+document.getElementById('albumClose').onclick = () => document.getElementById('album').classList.remove('open');
+document.getElementById('albumPrev').onclick = () => { albumIdx = (albumIdx + 4) % 5; renderAlbum(); };
+document.getElementById('albumNext').onclick = () => { albumIdx = (albumIdx + 1) % 5; renderAlbum(); };
+document.getElementById('albumStrip').onclick = e => { const t = e.target.closest('img'); if (t) { albumIdx = +t.dataset.i; renderAlbum(); } };
+document.addEventListener('keydown', e => { const a = document.getElementById('album'); if (!a.classList.contains('open')) return; if (e.key === 'Escape') a.classList.remove('open'); if (e.key === 'ArrowLeft') albumPrev.click(); if (e.key === 'ArrowRight') albumNext.click(); });
 
-function divIcon(html, cls) { return L.divIcon({ html, className: '', iconSize: null }); }
+const PH = ['highlight_incident', 'highlight_hospital', 'highlight_route', 'to_scene', 'at_scene', 'to_hospital', 'arrived', 'returning'];
+const PH_LABEL = { awaiting: 'Awaiting dispatcher confirmation', highlight_incident: '1 · Incident located', highlight_hospital: '2 · Hospital selected', highlight_route: '3 · Route selected',
+  to_scene: '4 · Vehicle on its way to the scene', at_scene: '5 · At scene, loading patient', to_hospital: '6 · Transporting to hospital', arrived: '7 · Patient at hospital', returning: '8 · Vehicle returning to base', done: 'Complete' };
 
 function drawStatic(st) {
-  layer.clearLayers(); routeLines = {}; casings = {}; respLines = {}; camMarkers = {}; hospMarkers = {}; airLine = null; vehicle = null;
-  const sc = st.scenario;
-  L.circleMarker([sc.lat, sc.lng], { radius: 9, color: '#e5484d', fillColor: '#e5484d', fillOpacity: .9, weight: 2 }).addTo(layer)
-    .bindTooltip(`INCIDENT · ${esc(sc.location)} · ${sc.time}`, { permanent: true, direction: 'bottom', className: 'cam-badge', offset: [0, 8] });
-  for (const cam of st.cameras) {
-    camMarkers[cam.id] = L.marker([cam.lat, cam.lng], { icon: divIcon(`<div class="cam-badge ${cam.level}" id="j-${cam.id}">📷 ${esc(cam.name)} · ${cam.count}</div>`) }).addTo(layer);
-  }
-  for (const [k, x] of Object.entries(st.stations)) {
-    L.marker([x.lat, x.lng], { icon: divIcon(`<div class="hosp-badge" id="s-${k}">🚑 ${esc(x.name.replace('108 base · ', ''))}</div>`) }).addTo(layer);
-  }
-  L.marker([st.air_base.lat, st.air_base.lng], { icon: divIcon(`<div class="hosp-badge" id="s-AIR">🚁 ${esc(st.air_base.name.replace('Air ambulance · ', ''))}</div>`) }).addTo(layer);
+  layer.clearLayers(); L_routes = {}; L_cas = {}; L_lbl = {}; L_air = {}; vehicle = null;
+  const sc = st.scenario, s = sc.id.toLowerCase();
+  // incident with photo popup
+  const photos = [1, 2, 3, 4, 5].map(i => `<img src="img/scene-${s}-${i}.png" class="${st.photo_file === `scene-${s}-${i}.png` ? 'sent' : ''}" onclick="openAlbum(${i - 1})" title="${TYPES[i - 1]}" onerror="this.style.display='none'">`).join('');
+  incMarker = L.marker([sc.lat, sc.lng], { icon: icon(`<div class="inc" id="inc"></div>`, [26, 26], [13, 13]), zIndexOffset: 900 }).addTo(layer)
+    .bindTooltip(`◉ ${esc(sc.location)} · ${sc.time}`, { permanent: true, direction: 'top', offset: [0, -14], className: 'pill-lbl' })
+    .on('click', () => openAlbum(0))
+    .bindPopup(`<div class="kicker" style="margin-bottom:6px">Scene photos · ${esc(sc.location)} · click to enlarge</div><div class="photos">${photos}</div><div class="sim" style="margin-top:6px">${st.photo_read ? `Read: ${esc(st.photo_read.patient_posture)}, traffic ${esc(st.photo_read.traffic_density)}, ${esc((st.photo_read.vehicles || []).join(' + '))}` : 'No photo sent yet'}</div>`, { maxWidth: 440 });
+  // air base
+  L.marker([st.air_base.lat, st.air_base.lng], { icon: icon(`<div class="base" id="s-AIR">🚁 HAL air base</div>`) }).bindTooltip(esc(st.air_base.name)).addTo(layer);
+  // hospitals
   for (const [k, h] of Object.entries(st.hospitals)) {
-    hospMarkers[k] = L.marker([h.lat, h.lng], { icon: divIcon(`<div class="hosp-badge" id="h-${k}">H ${esc(h.short)}${h.helipad ? ' ⊕' : ''}</div>`) }).addTo(layer);
+    L.marker([h.lat, h.lng], { icon: icon(`<div class="hosp mk" id="h-${k}"><span class="hx">H</span>${esc(h.short)}${h.helipad ? ' ⊕' : ''}</div>`, null, [10, 10]), zIndexOffset: 500 })
+      .bindTooltip(`${esc(h.name)} · ${h.specialties.join(', ')}${h.helipad ? ' · helipad' : ''}`).addTo(layer);
   }
+  // cameras
+  for (const cam of st.cameras) {
+    L.marker([cam.lat, cam.lng], { icon: icon(`<div class="camw"><div class="camdot ${cam.state}" id="j-${cam.id}">${CAM_SVG}</div><div class="camn ${cam.state}" id="jn-${cam.id}">${cam.state === 'BLOCKED' ? 'BLOCKED' : cam.count}</div></div>`, [44, 42], [22, 13]), zIndexOffset: 600 })
+      .bindTooltip(`📷 ${esc(cam.name)} · ${cam.state}${cam.state !== 'BLOCKED' ? ` · ${cam.count} vehicles` : ` · ${esc(cam.note)}`}`).addTo(layer);
+  }
+  // routes (grey until evaluated)
   const routes = st.decision ? st.decision.routes : st.candidate_routes;
-  for (const r of routes) {
-    casings[r.id] = L.polyline(r.points, { color: '#ffffff', weight: 9, opacity: .9 }).addTo(layer);
-    routeLines[r.id] = L.polyline(r.points, { color: '#9aa4b2', weight: 5, opacity: .85 }).addTo(layer)
-      .bindTooltip(st.decision ? `${r.id} · ${r.eta_min} min` : `${r.id} · ${st.hospitals[r.hospital].short} · base ${r.base_min} min`, { permanent: true, direction: 'center', className: 'cam-badge' });
-  }
-  if (st.decision) {
-    for (const x of st.decision.stations) {
-      respLines[x.id] = L.polyline(x.points, { color: '#9aa4b2', weight: 2, dashArray: '2 6', opacity: x.busy ? .25 : .6 }).addTo(layer);
-    }
-    if (st.decision.air) {
-      casings.AIR = L.polyline(st.decision.air.points, { color: '#ffffff', weight: 8, opacity: 0 }).addTo(layer);
-      airLine = L.polyline(st.decision.air.points, { color: '#1f6feb', weight: 4, dashArray: '10 8', opacity: 0 }).addTo(layer);
-      respLines.AIR = L.polyline(st.decision.air.response_points, { color: '#1f6feb', weight: 3, dashArray: '2 6', opacity: 0 }).addTo(layer);
+  routes.forEach((r, i) => {
+    L_cas[r.id] = L.polyline(r.points, { color: '#fff', weight: 8, opacity: .8 }).addTo(layer);
+    L_routes[r.id] = L.polyline(r.points, { color: '#9aa4b2', weight: 4, opacity: .8 }).addTo(layer);
+    const mid = r.points[Math.floor(r.points.length * (0.4 + 0.15 * i))];
+    L_lbl[r.id] = L.marker(mid, { icon: icon(`<div class="pill-lbl" id="rl-${r.id}">${r.id} · ${st.hospitals[r.hospital].short}${st.decision ? '' : ' · ' + r.base_min + ' min'}</div>`, null, [0, 22]), interactive: false }).addTo(layer);
+  });
+  if (st.decision && st.decision.air) {
+    const a = st.decision.air;
+    for (const [k, pts] of [['out', a.leg_out], ['in', a.leg_in], ['home', a.leg_home]]) {
+      L_air[k] = L.polyline(pts, { color: '#1f6feb', weight: k === 'in' ? 4 : 2, dashArray: k === 'in' ? '10 8' : '2 6', opacity: 0 }).addTo(layer);
     }
   }
-  const b = L.latLngBounds([[sc.lat, sc.lng]]);
+  const b = L.latLngBounds([[sc.lat, sc.lng], [st.air_base.lat, st.air_base.lng]]);
   routes.forEach(r => r.points.forEach(p => b.extend(p)));
-  Object.values(st.stations).forEach(x => b.extend([x.lat, x.lng]));
-  map.fitBounds(b.pad(0.15));
-  drawnFor = st.id + ':' + (st.decision ? 'd' : 'n');
+  Object.values(st.hospitals).forEach(h => b.extend([h.lat, h.lng]));
+  map.fitBounds(b.pad(0.08));
+  drawnFor = st.id + ':' + (st.decision ? 'd' : 'n') + ':' + (st.photo_file || '');
 }
 
 function drawDynamic(st) {
-  const d = st.decision; if (!d) return;
-  for (const r of d.routes) {
-    const line = routeLines[r.id]; if (!line) continue;
-    const chosen = d.chosen === r.id;
-    line.setStyle({ color: chosen ? '#1f6feb' : '#e5484d', weight: chosen ? 7 : 4, opacity: chosen ? 1 : .8, dashArray: chosen ? null : '8 6' });
-    if (casings[r.id]) casings[r.id].setStyle({ weight: chosen ? 11 : 7, opacity: chosen ? .95 : .6 });
-    line.setTooltipContent(`${r.id} · ${r.eta_min} min${r.passes ? (chosen ? ' ✓' : '') : ' ✕ rejected'}`);
-  }
-  if (airLine) { airLine.setStyle({ opacity: d.mode === 'air' ? 1 : 0 }); casings.AIR.setStyle({ opacity: d.mode === 'air' ? .9 : 0 }); }
-  for (const x of d.stations) {
-    const el = document.getElementById('s-' + x.id); if (!el) continue;
-    const chosenSt = d.mode === 'road' && d.station === x.id;
-    el.classList.toggle('match', chosenSt); el.classList.toggle('dim', x.busy || (!chosenSt && d.mode === 'road'));
-    el.textContent = `🚑 ${x.name.replace('108 base · ', '')} · ${x.busy ? 'busy' : x.response_min + ' min'}${chosenSt ? ' ✓' : ''}`;
-    if (respLines[x.id]) respLines[x.id].setStyle({ color: chosenSt ? '#1f6feb' : '#9aa4b2', weight: chosenSt ? 4 : 2, opacity: chosenSt ? 1 : (x.busy ? .2 : .5) });
-  }
-  const airEl = document.getElementById('s-AIR');
-  if (airEl) { airEl.classList.toggle('match', d.mode === 'air'); airEl.classList.toggle('dim', d.mode !== 'air'); if (d.air) airEl.textContent = `🚁 HAL Airport · ${d.air.response_min} min${d.mode === 'air' ? ' ✓' : ''}`; }
-  if (respLines.AIR) respLines.AIR.setStyle({ opacity: d.mode === 'air' ? 1 : 0 });
-  for (const [k, h] of Object.entries(st.hospitals)) {
+  const d = st.decision, ph = st.phase, idx = PH.indexOf(ph);
+  const after = name => idx >= PH.indexOf(name) || ['done'].includes(ph);
+  document.getElementById('inc').classList.toggle('pulse', ph === 'highlight_incident' || st.status === 'triaged');
+  if (!d) return;
+  const chosenRoute = d.routes.find(r => r.id === d.chosen);
+  // hospitals
+  for (const k of Object.keys(st.hospitals)) {
     const el = document.getElementById('h-' + k); if (!el) continue;
-    el.classList.toggle('match', k === d.hospital);
-    el.classList.toggle('dim', !(st.need && h.specialties.includes(st.need)));
+    const isChosen = k === d.hospital, show = st.status === 'triaged' || after('highlight_hospital');
+    el.classList.toggle('match', isChosen && show); el.classList.toggle('pulse', isChosen && ph === 'highlight_hospital');
+    el.classList.toggle('dim', !(st.hospitals[k].specialties.includes(st.need)) || (show && !isChosen));
   }
-  const onRoute = new Set(d.routes.flatMap(r => r.via));
-  for (const cam of st.cameras) { const el = document.getElementById('j-' + cam.id); if (el) { el.textContent = `📷 ${cam.name} · ${cam.count}`; el.className = 'cam-badge ' + cam.level; } }
-  (d.corridor || []).forEach(c => { const el = document.getElementById('j-' + c.junction); if (el && c.state === 'green') el.textContent = `🟢 ${c.name} · corridor`; });
-  // vehicle
-  if (st.progress > 0 && st.status !== 'handed_over') {
-    const leg1 = d.mode === 'air' ? d.air.response_points : (d.stations.find(x => x.id === d.station) || { points: null }).points;
-    const leg2 = d.mode === 'air' ? d.air.points : d.routes.find(r => r.id === d.chosen).points;
-    const split = 0.3; // first 30 % of the animation is the response leg
-    const p = (leg1 && st.progress < split) ? alongLine(leg1, st.progress / split) : alongLine(leg2, leg1 ? (st.progress - split) / (1 - split) : st.progress);
-    const glyph = d.mode === 'air' ? '🚁' : '🚑';
-    if (!vehicle) vehicle = L.marker([p.lat, p.lng], { icon: divIcon(`<div class="veh">${glyph}</div>`), zIndexOffset: 1000 }).addTo(layer);
+  // routes
+  const showRoute = st.status === 'triaged' || after('highlight_route');
+  for (const r of d.routes) {
+    const chosen = r.id === d.chosen, line = L_routes[r.id], cas = L_cas[r.id], lbl = document.getElementById('rl-' + r.id);
+    if (!line) continue;
+    if (st.status === 'triaged' || idx >= 0) {
+      line.setStyle({ color: chosen ? '#1f6feb' : '#e5484d', weight: chosen ? (showRoute ? 7 : 4) : 3, opacity: chosen ? 1 : .5, dashArray: chosen ? null : '6 8' });
+      cas.setStyle({ weight: chosen ? (showRoute ? 11 : 7) : 5, opacity: chosen ? .95 : .3 });
+      if (lbl) { lbl.className = 'pill-lbl ' + (chosen ? 'taken' : 'rej'); lbl.textContent = chosen ? `${r.id} · ${r.eta_min} min ✓` : `${r.id} ✕ ${r.reason}`; }
+    }
+  }
+  if (d.air) { L_air.in.setStyle({ opacity: d.mode === 'air' && showRoute ? 1 : 0 }); L_air.out.setStyle({ opacity: d.mode === 'air' && showRoute ? .8 : 0 }); L_air.home.setStyle({ opacity: d.mode === 'air' && after('returning') ? .8 : 0 }); }
+  const base = document.getElementById('s-AIR'); if (base) base.classList.toggle('taken', d.mode === 'air');
+  // cameras: corridor state
+  for (const cam of st.cameras) { const el = document.getElementById('j-' + cam.id), n = document.getElementById('jn-' + cam.id); if (el) el.className = `camdot ${cam.state}`; if (n) { n.className = `camn ${cam.state}`; n.textContent = cam.state === 'BLOCKED' ? 'BLOCKED' : cam.count; } }
+  (d.corridor || []).forEach(c => { const el = document.getElementById('j-' + c.junction), n = document.getElementById('jn-' + c.junction); if (el && c.state === 'green') { el.className = 'camdot corridor'; if (n) { n.textContent = 'GREEN'; n.className = 'camn'; n.style.color = '#8ab4ff'; } } });
+  // vehicle: hospital → scene → hospital (→ base for air)
+  let pts = null, f = 0, glyph = d.mode === 'air' ? '🚁' : '🚑', loaded = false;
+  if (d.mode === 'air') {
+    if (ph === 'to_scene') { pts = d.air.leg_out; f = st.phase_within; }
+    else if (ph === 'at_scene') { pts = d.air.leg_out; f = 1; }
+    else if (ph === 'to_hospital') { pts = d.air.leg_in; f = st.phase_within; loaded = true; }
+    else if (ph === 'arrived') { pts = d.air.leg_in; f = 1; }
+    else if (ph === 'returning') { pts = d.air.leg_home; f = st.phase_within; }
+  } else if (chosenRoute) {
+    const toScene = [...chosenRoute.points].reverse();
+    if (ph === 'to_scene') { pts = toScene; f = st.phase_within; }
+    else if (ph === 'at_scene') { pts = toScene; f = 1; }
+    else if (ph === 'to_hospital') { pts = chosenRoute.points; f = st.phase_within; loaded = true; }
+    else if (ph === 'arrived' || ph === 'returning') { pts = chosenRoute.points; f = 1; }
+  }
+  if (pts) {
+    const p = alongLine(pts, f);
+    if (!vehicle) vehicle = L.marker([p.lat, p.lng], { icon: icon(`<div class="veh" id="veh">${glyph}</div>`, [30, 30], [15, 15]), zIndexOffset: 1000 }).addTo(layer);
     vehicle.setLatLng([p.lat, p.lng]);
+    const v = document.getElementById('veh'); if (v) v.classList.toggle('loaded', loaded);
+    if (d.mode === 'air' && ph === 'done') { layer.removeLayer(vehicle); vehicle = null; }
   }
 }
 
 function renderCams(st) {
   const el = document.getElementById('camstrip'); if (!st) { el.innerHTML = ''; return; }
-  const onRoute = new Set(st.decision ? st.decision.routes.flatMap(r => r.via) : []);
-  el.innerHTML = st.cameras.map(c => `<div class="cam ${c.level} ${onRoute.has(c.id) ? 'onroute' : ''}" title="Fixed traffic camera at ${esc(c.name)}">
-    <div class="n">📷 ${c.id} · ${esc(c.name)}</div>
-    <div class="feed"><span class="dot"></span>placeholder feed</div>
-    <div class="c"><span>${c.count} veh</span><b class="lv-${c.level}" style="background:none">${c.level.toUpperCase()}</b></div></div>`).join('');
+  el.innerHTML = st.cameras.map(c => `<div class="cam ${c.state}" title="${esc(c.note || c.name)}"><div class="n">📷 ${c.id} · ${esc(c.name)}</div><div class="feed">placeholder feed</div><div class="c"><span>${c.state === 'BLOCKED' ? 'not moving' : c.count + ' veh'}</span><b>${c.state}</b></div></div>`).join('');
 }
+
 function render(st) {
-  markScenario(st); renderCams(st);
+  albumSt = st; markScenario(st); renderCams(st);
   const patient = document.getElementById('patient'), trace = document.getElementById('trace');
   const confirm = document.getElementById('confirm'), override = document.getElementById('override');
-  if (!st) { patient.innerHTML = '<div class="sim">No active incident. Pick a scenario above.</div>'; renderTrace(trace, null); confirm.disabled = override.disabled = true; return; }
-  const key = st.id + ':' + (st.decision ? 'd' : 'n');
+  const bar = document.getElementById('phasebar');
+  if (!st) { patient.innerHTML = '<div class="sim">No active incident. Pick a scenario above.</div>'; renderTrace(trace, null); confirm.disabled = override.disabled = true; bar.innerHTML = ''; return; }
+  const key = st.id + ':' + (st.decision ? 'd' : 'n') + ':' + (st.photo_file || '');
   if (key !== drawnFor) drawStatic(st);
   drawDynamic(st);
   const sev = st.severity ? `<span class="badge ${st.severity}">${st.severity} ${{ P1: 'CRITICAL', P2: 'SERIOUS', P3: 'MINOR' }[st.severity]}</span>` : '<span class="pill">awaiting triage</span>';
-  patient.innerHTML = `<div class="row" style="align-items:center;gap:10px">${sev}<b>${st.patient.id}</b><span class="sim">${st.patient.sex} · ${st.patient.age}</span>
-     <span class="pill" style="margin-left:auto">${esc(st.status)}</span></div>
+  patient.innerHTML = `<div class="row" style="align-items:center;gap:10px">${sev}<b>${st.patient.id}</b><span class="sim">${st.patient.sex} · ${st.patient.age}</span><span class="pill" style="margin-left:auto">${esc(st.status)}</span></div>
      <div style="color:var(--ink2);margin-top:8px">${esc(st.report.text)}</div>
-     ${st.photo_read ? `<div class="sim" style="margin-top:6px">Photo: ${esc(st.photo_read.patient_posture)}, traffic ${esc(st.photo_read.traffic_density)}, ${esc((st.photo_read.vehicles||[]).join(' + '))}</div>` : ''}`;
+     ${st.photo_read ? `<div class="sim" style="margin-top:6px">Photo: ${esc(st.photo_read.patient_posture)}, traffic ${esc(st.photo_read.traffic_density)}, ${esc((st.photo_read.vehicles || []).join(' + '))} · <a href="#" onclick="openAlbum(0);return false">open album</a></div>` : ''}`;
   renderTrace(trace, st.decision && st.decision.trace);
   const canConfirm = st.status === 'triaged';
   confirm.disabled = !canConfirm;
   override.disabled = !(canConfirm && st.decision && st.decision.mode === 'air');
-  confirm.textContent = canConfirm ? `CONFIRM ${st.decision.mode.toUpperCase()} DISPATCH` : (st.status === 'reported' ? 'WAITING FOR REPORT' : `${st.status.toUpperCase().replace('_', ' ')}`);
+  confirm.textContent = canConfirm ? `CONFIRM ${st.decision.mode.toUpperCase()} DISPATCH` : (st.status === 'reported' ? 'WAITING FOR REPORT' : st.status.toUpperCase().replace('_', ' '));
+  // phase bar
+  const idx = PH.indexOf(st.phase);
+  bar.innerHTML = PH.map((p, i) => `<span class="${i < idx || st.phase === 'done' ? 'done' : i === idx ? 'on' : ''}" title="${PH_LABEL[p]}"></span>`).join('');
+  document.getElementById('phaseName').textContent = PH_LABEL[st.phase] || 'Sequence';
+  document.getElementById('phaseHint').textContent = st.decision ? (st.decision.mode === 'air' ? 'HAL → scene → helipad → HAL' : `${st.hospitals[st.decision.hospital].short} → scene → ${st.hospitals[st.decision.hospital].short}`) : '';
+  // considered
+  const cons = document.getElementById('considered');
+  if (st.decision) {
+    cons.style.display = '';
+    cons.innerHTML = `<div class="kicker" style="margin-bottom:4px">Routes considered</div>` + st.decision.considered.map(x =>
+      `<div class="r ${x.id === st.decision.chosen ? 'taken' : x.passes ? '' : 'rej'}"><span class="id">${x.id}</span><span>${esc(st.hospitals[x.hospital].short)} · ${x.eta_min} min</span><span class="why">${x.id === st.decision.chosen ? 'taken' : esc(x.reason)}</span></div>`).join('')
+      + (st.decision.air ? `<div class="r ${st.decision.mode === 'air' ? 'taken' : ''}"><span class="id">✈</span><span>HAL → ${esc(st.hospitals[st.decision.air.hospital].short)} · ${st.decision.air.eta_min} min</span><span class="why">${st.decision.mode === 'air' ? 'taken' : 'not needed'}</span></div>` : '');
+  } else cons.style.display = 'none';
   const cor = document.getElementById('corridor');
   if (st.decision && st.decision.corridor && st.decision.corridor.length) {
     cor.style.display = '';
-    cor.innerHTML = `<div class="kicker">Green corridor</div>` + st.decision.corridor.map(c =>
-      `<div class="row" style="justify-content:space-between;padding:4px 0"><span>${esc(c.name)}</span><span class="pill ${c.state === 'green' ? 'green' : c.state === 'holding' ? 'amber' : ''}">${c.state} · T+${c.hold_from_min}–${c.hold_to_min} min</span></div>`).join('');
+    cor.innerHTML = `<div class="kicker">Green corridor · return leg</div>` + st.decision.corridor.map(c =>
+      `<div class="row" style="justify-content:space-between;padding:3px 0;font-size:11px"><span>${esc(c.name)}</span><span class="pill ${c.state === 'green' ? 'green' : c.state === 'holding' ? 'amber' : ''}">${c.state}</span></div>`).join('');
   } else cor.style.display = 'none';
   document.getElementById('saved').textContent = st.decision ? st.decision.minutes_saved : '—';
-  document.getElementById('eta').textContent = st.eta_left_min != null ? `${st.eta_left_min} min` : (st.decision ? `${st.decision.eta_min} min` : '—');
+  document.getElementById('eta').textContent = st.eta_left_min != null ? (st.eta_left_min <= 0 ? 'arrived' : `${st.eta_left_min} min`) : (st.decision ? `${st.decision.eta_min} min` : '—');
 }
 
-document.getElementById('canned').onclick = async () => { const st = await api('/incident/state').catch(()=>null); if (!st) return alert('Pick a scenario first'); await post('/incident/photo_sim', {}); await post('/incident/report', st.report); };
+document.getElementById('canned').onclick = async () => { const st = await api('/incident/state').catch(() => null); if (!st) return alert('Pick a scenario first'); await post('/incident/photo_sim', {}); await post('/incident/report', st.report); };
 document.getElementById('confirm').onclick = () => post('/incident/confirm', {});
 document.getElementById('override').onclick = () => post('/incident/confirm', { override_road: true });
 mountTopbar('dispatch').then(() => startPolling(render));

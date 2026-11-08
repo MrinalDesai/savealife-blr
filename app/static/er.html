@@ -86,7 +86,7 @@ function render(st) {
   const d = st.decision, h = st.hospitals[d.hospital], v = st.vitals;
   hrNow = v.hr;
   $('hosp').textContent = `${h.short.toUpperCase()} · ${st.need.toUpperCase()} ER`;
-  $('eta').textContent = st.status === 'arrived' || st.status === 'handed_over' ? 'ARRIVED' : (st.eta_left_min != null ? fmtClock(st.eta_left_min * 60) : `${d.eta_min} min`);
+  $('eta').textContent = (st.status === 'arrived' || st.status === 'handed_over' || st.eta_left_min === 0) ? 'ARRIVED' : (st.eta_left_min != null ? fmtClock(st.eta_left_min * 60) : `${d.eta_min} min`);
   $('head').innerHTML = `<div class="row" style="align-items:center;gap:10px"><span class="badge ${st.severity}">${st.severity} ${{ P1: 'CRITICAL', P2: 'SERIOUS', P3: 'MINOR' }[st.severity]}</span><b>${st.patient.id}</b><span class="sim">${st.patient.sex} · ${st.patient.age} · ${st.patient.blood}</span></div>
     <div style="color:var(--ink2);margin-top:8px">${esc(st.report.text)}</div><div class="sim" style="margin-top:4px">Arriving by ${d.mode} from ${esc(st.scenario.location)}.</div>`;
   $('hr').textContent = v.hr; $('bp').textContent = `${v.sbp}/${v.dbp}`; $('spo2').textContent = v.spo2; $('rr').textContent = v.rr;

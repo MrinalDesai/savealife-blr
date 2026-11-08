@@ -11,7 +11,8 @@
         "ortho",
         "general"
       ],
-      "helipad": true
+      "helipad": true,
+      "ambulances": 2
     },
     "nimhans": {
       "name": "NIMHANS",
@@ -19,9 +20,11 @@
       "lat": 12.943,
       "lng": 77.596,
       "specialties": [
-        "neuro"
+        "neuro",
+        "trauma"
       ],
-      "helipad": false
+      "helipad": false,
+      "ambulances": 2
     },
     "manipal": {
       "name": "Manipal Hospital, Old Airport Road",
@@ -33,7 +36,8 @@
         "cardiac",
         "ortho"
       ],
-      "helipad": false
+      "helipad": false,
+      "ambulances": 2
     },
     "apollo": {
       "name": "Apollo Hospital, Bannerghatta Road",
@@ -43,9 +47,11 @@
       "specialties": [
         "trauma",
         "cardiac",
-        "general"
+        "general",
+        "ortho"
       ],
-      "helipad": false
+      "helipad": false,
+      "ambulances": 2
     },
     "fortis": {
       "name": "Fortis Hospital, Bannerghatta Road",
@@ -57,7 +63,8 @@
         "cardiac",
         "ortho"
       ],
-      "helipad": false
+      "helipad": false,
+      "ambulances": 2
     },
     "sakra": {
       "name": "Sakra World Hospital, Marathahalli",
@@ -69,7 +76,8 @@
         "neuro",
         "ortho"
       ],
-      "helipad": true
+      "helipad": true,
+      "ambulances": 2
     }
   },
   "junctions": {
@@ -105,8 +113,8 @@
     }
   },
   "windows_min": {
-    "P1": 20,
-    "P2": 40,
+    "P1": 25,
+    "P2": 45,
     "P3": 90
   },
   "air": {
@@ -134,12 +142,12 @@
       "expected_severity": "P2",
       "need": "ortho",
       "cams": {
-        "J1": 240,
-        "J5": 60,
-        "J4": 110,
-        "J2": 95,
-        "J3": 120,
-        "J6": 70
+        "J1": 260,
+        "J2": 120,
+        "J3": 60,
+        "J4": 55,
+        "J5": 150,
+        "J6": 50
       },
       "routes": [
         {
@@ -156,7 +164,7 @@
             "J5"
           ],
           "hospital": "stjohns",
-          "base_min": 12
+          "base_min": 13
         },
         {
           "id": "C",
@@ -164,7 +172,7 @@
             "J4"
           ],
           "hospital": "fortis",
-          "base_min": 16
+          "base_min": 10
         }
       ],
       "photo_read": {
@@ -183,8 +191,12 @@
         "Keep others back and make room for the ambulance.",
         "Stay with him and keep talking to him."
       ],
-      "stations_busy": [
-        "ST3"
+      "blocked": [
+        "J1"
+      ],
+      "blocked_reason": "stalled truck under the flyover",
+      "no_ambulance": [
+        "stjohns"
       ]
     },
     {
@@ -204,12 +216,12 @@
       "expected_severity": "P1",
       "need": "neuro",
       "cams": {
-        "J2": 230,
-        "J3": 220,
-        "J6": 210,
         "J1": 200,
+        "J2": 260,
+        "J3": 220,
         "J4": 150,
-        "J5": 180
+        "J5": 180,
+        "J6": 210
       },
       "routes": [
         {
@@ -219,7 +231,7 @@
             "J3"
           ],
           "hospital": "stjohns",
-          "base_min": 14
+          "base_min": 12
         },
         {
           "id": "B",
@@ -228,7 +240,7 @@
             "J1"
           ],
           "hospital": "stjohns",
-          "base_min": 17
+          "base_min": 15
         },
         {
           "id": "C",
@@ -236,7 +248,7 @@
             "J3"
           ],
           "hospital": "nimhans",
-          "base_min": 22
+          "base_min": 20
         }
       ],
       "photo_read": {
@@ -256,10 +268,11 @@
         "Clear a 20 m space on the road for the helicopter crew.",
         "Stay until the crew arrives."
       ],
-      "stations_busy": [
-        "ST1",
-        "ST2"
-      ]
+      "blocked": [
+        "J2"
+      ],
+      "blocked_reason": "the crash itself, ORR carriageway blocked",
+      "no_ambulance": []
     },
     {
       "id": "S3",
@@ -278,12 +291,12 @@
       "expected_severity": "P3",
       "need": "general",
       "cams": {
-        "J2": 230,
-        "J3": 220,
-        "J6": 210,
         "J1": 200,
+        "J2": 260,
+        "J3": 220,
         "J4": 150,
-        "J5": 180
+        "J5": 180,
+        "J6": 210
       },
       "routes": [
         {
@@ -293,7 +306,7 @@
             "J3"
           ],
           "hospital": "stjohns",
-          "base_min": 14
+          "base_min": 12
         },
         {
           "id": "B",
@@ -302,15 +315,15 @@
             "J1"
           ],
           "hospital": "stjohns",
-          "base_min": 17
+          "base_min": 15
         },
         {
           "id": "C",
           "via": [
-            "J3"
+            "J6"
           ],
-          "hospital": "nimhans",
-          "base_min": 22
+          "hospital": "apollo",
+          "base_min": 18
         }
       ],
       "photo_read": {
@@ -329,10 +342,11 @@
         "Stay with him. Tell us if he becomes dizzy or confused.",
         "Move both of you off the carriageway."
       ],
-      "stations_busy": [
-        "ST1",
-        "ST2"
-      ]
+      "blocked": [
+        "J2"
+      ],
+      "blocked_reason": "the crash itself, ORR carriageway blocked",
+      "no_ambulance": []
     },
     {
       "id": "S4",
@@ -351,12 +365,12 @@
       "expected_severity": "P1",
       "need": "neuro",
       "cams": {
-        "J4": 40,
         "J1": 55,
-        "J6": 35,
-        "J3": 50,
         "J2": 45,
-        "J5": 30
+        "J3": 50,
+        "J4": 40,
+        "J5": 30,
+        "J6": 35
       },
       "routes": [
         {
@@ -365,8 +379,8 @@
             "J4",
             "J1"
           ],
-          "hospital": "stjohns",
-          "base_min": 11
+          "hospital": "nimhans",
+          "base_min": 10
         },
         {
           "id": "B",
@@ -375,7 +389,7 @@
             "J3"
           ],
           "hospital": "stjohns",
-          "base_min": 14
+          "base_min": 12
         },
         {
           "id": "C",
@@ -383,7 +397,7 @@
             "J4"
           ],
           "hospital": "fortis",
-          "base_min": 9
+          "base_min": 7
         }
       ],
       "photo_read": {
@@ -401,7 +415,11 @@
         "If he vomits, roll him gently onto his side, head and body together.",
         "Stand where the ambulance can see you on the road."
       ],
-      "stations_busy": []
+      "blocked": [],
+      "blocked_reason": "",
+      "no_ambulance": [
+        "stjohns"
+      ]
     },
     {
       "id": "S5",
@@ -420,16 +438,16 @@
       "expected_severity": "P2",
       "need": "ortho",
       "cams": {
-        "J3": 200,
-        "J5": 150,
-        "J6": 180,
         "J1": 170,
         "J2": 140,
-        "J4": 120
+        "J3": 200,
+        "J4": 60,
+        "J5": 140,
+        "J6": 180
       },
       "cams_after": {
-        "J3": 90,
-        "J5": 70
+        "J3": 70,
+        "J5": 60
       },
       "reeval_at_progress": 0.35,
       "routes": [
@@ -440,24 +458,24 @@
             "J5"
           ],
           "hospital": "stjohns",
-          "base_min": 10
+          "base_min": 9
         },
         {
           "id": "B",
+          "via": [
+            "J3"
+          ],
+          "hospital": "manipal",
+          "base_min": 12
+        },
+        {
+          "id": "C",
           "via": [
             "J6",
             "J1"
           ],
           "hospital": "stjohns",
-          "base_min": 15
-        },
-        {
-          "id": "C",
-          "via": [
-            "J3"
-          ],
-          "hospital": "manipal",
-          "base_min": 22
+          "base_min": 14
         }
       ],
       "photo_read": {
@@ -476,37 +494,21 @@
         "Warn traffic: stand upstream with your phone torch on.",
         "Stay with him and keep talking."
       ],
-      "stations_busy": [
-        "ST1"
+      "blocked": [],
+      "blocked_reason": "",
+      "no_ambulance": [
+        "stjohns"
       ]
     }
   ],
-  "stations": {
-    "ST1": {
-      "name": "108 base · Koramangala",
-      "lat": 12.9352,
-      "lng": 77.6245
-    },
-    "ST2": {
-      "name": "108 base · HSR Layout",
-      "lat": 12.9121,
-      "lng": 77.6446
-    },
-    "ST3": {
-      "name": "108 base · BTM Layout",
-      "lat": 12.9166,
-      "lng": 77.6101
-    },
-    "ST4": {
-      "name": "108 base · Bellandur",
-      "lat": 12.9304,
-      "lng": 77.6784
-    }
-  },
   "air_base": {
     "name": "Air ambulance · HAL Airport",
     "lat": 12.95,
     "lng": 77.668
   },
-  "ground_speed_km_per_min": 0.55
+  "ground_speed_km_per_min": 0.55,
+  "cam_thresholds": {
+    "low_max": 80,
+    "high_max": 250
+  }
 }

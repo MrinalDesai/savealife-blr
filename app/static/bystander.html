@@ -103,7 +103,7 @@ function render(st) {
   const a = $('alert');
   if (triaged) {
     const d = st.decision; const label = { P1: 'CRITICAL', P2: 'SERIOUS', P3: 'MINOR' }[st.severity];
-    const line = st.status === 'triaged' ? 'Dispatcher is confirming…' : st.status === 'arrived' ? 'Ambulance crew is with the patient.' :
+    const line = st.status === 'triaged' ? 'Dispatcher is confirming…' : st.phase === 'at_scene' ? 'Crew is with the patient now.' : st.status === 'arrived' ? 'Patient is at the hospital.' :
       `${d.mode === 'air' ? 'Air ambulance' : 'Road ambulance'} · ${st.eta_left_min != null ? `arrives in ${Math.ceil(st.eta_left_min)} min` : `${d.eta_min} min`}`;
     a.style.display = ''; a.className = 'alert ' + st.severity;
     a.innerHTML = `<span class="badge ${st.severity}">${st.severity}</span><div><b>Help is on the way.</b><br><span style="color:var(--ink2)">${esc(line)}</span></div>`;

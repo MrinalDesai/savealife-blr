@@ -76,6 +76,7 @@ async def incident_photo(file: UploadFile = File(...)) -> dict:
     live mode sends the image to the vision model on watsonx.ai."""
     inc = _inc()
     data = await file.read()
+    inc.photo_file = file.filename
     if settings.simulation:
         inc.photo_read = dict(inc.scenario["photo_read"])
         inc.photo_read["source"] = "simulated"
@@ -103,6 +104,7 @@ def incident_photo_sim() -> dict:
     """Demo shortcut: apply the scenario's canned photo read without uploading a file."""
     inc = _inc()
     inc.photo_read = dict(inc.scenario["photo_read"]); inc.photo_read["source"] = "simulated"
+    inc.photo_file = f"scene-{inc.scenario['id'].lower()}-1.png"
     inc.log("Scene photo analysed", f"posture {inc.photo_read.get('patient_posture')}, traffic {inc.photo_read.get('traffic_density')}")
     return inc.state()
 
