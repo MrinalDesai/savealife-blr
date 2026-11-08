@@ -140,6 +140,11 @@ Savings are scenario-modelled on synthetic traffic, against the time a distance-
 
 **The agent and Granite — an honest note.** The agent was specified on Granite 4 H Small. With Orchestrate's `react` style every run returned the generic "I did not understand" in six seconds, 39 completion tokens, empty step history; `react_core` the same; `default` style, "LLM has responded with empty message". `orchestrate models list` marks Granite as not recommended for agents; the recommended models are gpt-oss-120b, Claude Sonnet and Gemma. The agent was moved to gpt-oss-120b — Orchestrate's default, and what IBM's own stock agents in the instance use — and passed 5/5 on the first run. The diagnostic that found this is `scripts/wxo_diag.py`. Granite still does the triage text.
 
+## IBM technology
+
+<p align="center"><img src="docs/ibm-tech.png" width="900" alt="IBM technology used in SaveAlife BLR"></p>
+
+
 ## Bob built the IBM layer
 
 The screens and the simulation engine were hand-built and tested first so Bob had a stable codebase to extend. Each task was one written spec, pasted once; debugging happened outside Bob so each session is a clean record. Exports in `bob_sessions/`.
