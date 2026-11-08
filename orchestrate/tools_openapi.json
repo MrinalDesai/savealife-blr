@@ -1,0 +1,392 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SaveAlife BLR tools",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/tools/{scenario_id}/incident": {
+      "get": {
+        "tags": [
+          "tools"
+        ],
+        "summary": "Return the incident report and static scene data for a scenario.",
+        "description": "Returns the bystander report (text, counts, vital flags), photo-read result, GPS co-ordinates, and the triage severity window for the given scenario. Call this first to understand what happened before querying cameras or routes.",
+        "operationId": "get_incident",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Incident"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tools/{scenario_id}/cameras": {
+      "get": {
+        "tags": [
+          "tools"
+        ],
+        "summary": "Return the current camera state (LOW/HIGH/BLOCKED) for every junction in a scenario.",
+        "description": "Returns one entry per traffic camera junction with its vehicle count, congestion state, and a note when blocked. Use this to understand which roads are congested or impassable before evaluating routes.",
+        "operationId": "get_cameras",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Cameras"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tools/{scenario_id}/routes": {
+      "get": {
+        "tags": [
+          "tools"
+        ],
+        "summary": "Return all candidate routes evaluated for a scenario, severity, and specialist need.",
+        "description": "Runs the full dispatch decision for the given scenario, severity level (P1/P2/P3), and specialist need (neuro/trauma/ortho/general). Returns every considered route with timing, camera penalties, pass/fail flag, and rejection reason. Use this to identify which route the ambulance should take and why others were rejected.",
+        "operationId": "get_routes",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^P[123]$",
+              "description": "P1, P2, or P3",
+              "title": "Severity"
+            },
+            "description": "P1, P2, or P3"
+          },
+          {
+            "name": "need",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(neuro|trauma|ortho|general)$",
+              "description": "neuro, trauma, ortho, or general",
+              "title": "Need"
+            },
+            "description": "neuro, trauma, ortho, or general"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Routes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tools/{scenario_id}/hospitals": {
+      "get": {
+        "tags": [
+          "tools"
+        ],
+        "summary": "Return all hospitals with specialty match and ambulance availability for a scenario.",
+        "description": "Returns the full hospital list annotated with whether each hospital has the required specialty and whether an ambulance is currently free for this scenario. Use this to confirm that a chosen hospital can accept the patient.",
+        "operationId": "get_hospitals",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "need",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(neuro|trauma|ortho|general)$",
+              "description": "neuro, trauma, ortho, or general",
+              "title": "Need"
+            },
+            "description": "neuro, trauma, ortho, or general"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Hospitals"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tools/{scenario_id}/air": {
+      "get": {
+        "tags": [
+          "tools"
+        ],
+        "summary": "Return the helicopter air-ambulance option for a scenario and specialist need.",
+        "description": "Computes whether a helicopter can reach the scene and deliver the patient to a helipad-equipped hospital with the required specialty within a usable time. Returns flight legs and ETA when available, or {\"available\": false} when no suitable helipad hospital exists. Use this when all road routes are rejected for a P1 patient.",
+        "operationId": "get_air_option",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "need",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(neuro|trauma|ortho|general)$",
+              "description": "neuro, trauma, ortho, or general",
+              "title": "Need"
+            },
+            "description": "neuro, trauma, ortho, or general"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Air Option"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_incident_photo_api_incident_photo_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_incident_photo_api_incident_photo_post"
+      },
+      "Confirm": {
+        "properties": {
+          "override_road": {
+            "type": "boolean",
+            "title": "Override Road",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "Confirm"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "NewIncident": {
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "title": "Scenario"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "title": "NewIncident"
+      },
+      "Report": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 1
+          },
+          "conscious": {
+            "type": "boolean",
+            "title": "Conscious",
+            "default": true
+          },
+          "breathing": {
+            "type": "boolean",
+            "title": "Breathing",
+            "default": true
+          },
+          "bleeding": {
+            "type": "boolean",
+            "title": "Bleeding",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "Report"
+      },
+      "Tick": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "done"
+        ],
+        "title": "Tick"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://savealife-blr.2gwnl9m982ir.us-south.codeengine.appdomain.cloud"
+    }
+  ]
+}

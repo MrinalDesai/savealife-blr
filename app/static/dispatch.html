@@ -53,8 +53,13 @@
   /* panels */
   .camstrip { position:absolute; left:10px; right:10px; bottom:10px; z-index:500; display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
   .cam { background:rgba(14,20,27,.95); border:1px solid var(--line); border-radius:8px; padding:6px 8px; min-height:96px; display:flex; flex-direction:column; gap:3px; }
-  .cam .feed { flex:1; border-radius:4px; background:repeating-linear-gradient(135deg,#121a23 0 6px,#0e141b 6px 12px); display:grid; place-items:center; font-size:9px; color:var(--dim); position:relative; min-height:42px; }
-  .cam .feed::before { content:'REC'; position:absolute; top:3px; left:5px; color:var(--red2); font-size:8px; font-weight:700; }
+  .cam .feed { flex:1; border-radius:4px; background:repeating-linear-gradient(135deg,#121a23 0 6px,#0e141b 6px 12px); display:grid; place-items:center; font-size:9px; color:var(--dim); position:relative; min-height:56px; overflow:hidden; cursor:pointer; }
+  .cam .feed video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .cam .feed::before { content:'REC'; position:absolute; top:3px; left:5px; color:var(--red2); font-size:8px; font-weight:700; z-index:1; text-shadow:0 0 3px #000; }
+  .cam.BLOCKED .feed::after { content:'✕ BLOCKED'; position:absolute; inset:auto 0 3px 0; text-align:center; color:#fff; background:rgba(229,72,77,.85); font:800 9px var(--mono); z-index:1; }
+  .camview { position:fixed; inset:0; z-index:2100; background:rgba(5,8,12,.94); display:none; place-items:center; }
+  .camview.open { display:grid; } .camview video { max-width:80vw; max-height:70vh; border-radius:10px; border:2px solid #263241; }
+  .camview .cap { color:var(--ink2); text-align:center; margin-top:10px; font-size:12px; }
   .cam .n { font-size:10px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .cam .c { font-size:10px; display:flex; justify-content:space-between; font-weight:700; }
   .cam.LOW .c b { color:#3ddc84 } .cam.HIGH .c b { color:#ffb454 } .cam.BLOCKED .c b { color:#ff8a8e } .cam.BLOCKED { border-color:#e5484d }
@@ -126,6 +131,7 @@
   <div class="cap" id="albumCap"></div>
   <div class="strip" id="albumStrip"></div>
 </div>
+<div class="camview" id="camview" onclick="this.classList.remove('open')"><div><video id="camviewVid" autoplay muted loop playsinline></video><div class="cap" id="camviewCap"></div></div></div>
 <script src="vendor/leaflet.js"></script>
 <script src="app.js"></script>
 <script>
@@ -162,6 +168,7 @@ document.getElementById('albumNext').onclick = () => { albumIdx = (albumIdx + 1)
 document.getElementById('albumStrip').onclick = e => { const t = e.target.closest('img'); if (t) { albumIdx = +t.dataset.i; renderAlbum(); } };
 document.addEventListener('keydown', e => { const a = document.getElementById('album'); if (!a.classList.contains('open')) return; if (e.key === 'Escape') a.classList.remove('open'); if (e.key === 'ArrowLeft') albumPrev.click(); if (e.key === 'ArrowRight') albumNext.click(); });
 
+function openCam(id, state, name) { const v = document.getElementById('camviewVid'); v.src = `video/cam-${state.toLowerCase()}.mp4`; document.getElementById('camviewCap').textContent = `📷 ${id} · ${name} · ${state} · recorded footage replayed, synthetic`; document.getElementById('camview').classList.add('open'); }
 const PH = ['highlight_incident', 'highlight_hospital', 'highlight_route', 'to_scene', 'at_scene', 'to_hospital', 'arrived', 'returning'];
 const PH_LABEL = { awaiting: 'Awaiting dispatcher confirmation', highlight_incident: '1 · Incident located', highlight_hospital: '2 · Hospital selected', highlight_route: '3 · Route selected',
   to_scene: '4 · Vehicle on its way to the scene', at_scene: '5 · At scene, loading patient', to_hospital: '6 · Transporting to hospital', arrived: '7 · Patient at hospital', returning: '8 · Vehicle returning to base', done: 'Complete' };
@@ -263,7 +270,12 @@ function drawDynamic(st) {
 
 function renderCams(st) {
   const el = document.getElementById('camstrip'); if (!st) { el.innerHTML = ''; return; }
-  el.innerHTML = st.cameras.map(c => `<div class="cam ${c.state}" title="${esc(c.note || c.name)}"><div class="n">📷 ${c.id} · ${esc(c.name)}</div><div class="feed">placeholder feed</div><div class="c"><span>${c.state === 'BLOCKED' ? 'not moving' : c.count + ' veh'}</span><b>${c.state}</b></div></div>`).join('');
+  const sig = st.cameras.map(c => c.id + c.state).join('|');
+  if (el.dataset.sig === sig) return;   // don't re-render (and restart videos) unless a state changed
+  el.dataset.sig = sig;
+  el.innerHTML = st.cameras.map(c => `<div class="cam ${c.state}" title="${esc(c.note || c.name)}"><div class="n">📷 ${c.id} · ${esc(c.name)}</div>
+    <div class="feed" onclick="openCam('${c.id}','${c.state}','${esc(c.name)}')"><video src="video/cam-${c.state.toLowerCase()}.mp4" autoplay muted loop playsinline onerror="this.remove()"></video></div>
+    <div class="c"><span>${c.state === 'BLOCKED' ? 'not moving' : c.count + ' veh'}</span><b>${c.state}</b></div></div>`).join('');
 }
 
 function render(st) {

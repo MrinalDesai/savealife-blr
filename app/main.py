@@ -9,11 +9,13 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers.api import router as api_router
+from app.routers.tools import router as tools_router
 
 STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI(title="SaveAlife BLR", version="0.2.0")
 app.include_router(api_router)
+app.include_router(tools_router)
 
 
 @app.get("/", include_in_schema=False)
