@@ -37,3 +37,29 @@ Six fixed traffic cameras report LOW / HIGH / BLOCKED. Ambulances come from the 
 | S5 Sarjapur Rd | HIGH, clears mid-trip | P2 | road A with corridor, passes by 1 min, ETA revised live |
 
 Real road geometry and live times come from the Google Routes API (`python scripts/fetch_routes.py`, cached in `data/routes_cache.json`).
+
+## Deploy to IBM Cloud Code Engine
+
+### Prerequisites
+
+- [IBM Cloud CLI](https://cloud.ibm.com/docs/cli) installed and logged in (`ibmcloud login --apikey $IBM_CLOUD_API_KEY -g Default`)
+- Code Engine plugin installed: `ibmcloud plugin install code-engine`
+- A `.env` file in the repo root (copied from `.env.example` with real keys filled in)
+
+### One-command deploy
+
+```powershell
+.\scripts\deploy_ce.ps1
+```
+
+The script will:
+1. Target `us-south` and create the Code Engine project `savealife-blr` if it does not exist.
+2. Build the container image directly from local source using `ibmcloud ce app create --build-source .`.
+3. On subsequent runs it detects the existing app and calls `ibmcloud ce app update` instead.
+4. Every variable from `.env` (except `IBM_CLOUD_API_KEY`) is injected as a runtime environment variable.
+5. Print the public HTTPS URL of the running app when finished.
+
+### What is shipped in the image
+
+`data/routes_cache.json`, `app/static/img/`, and `app/static/video/` are **included** in the Docker image (they are not listed in `.dockerignore`), so the app works without any attached storage volume.
+
