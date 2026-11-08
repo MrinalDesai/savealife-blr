@@ -1,186 +1,113 @@
-# ForgePulse — Predictive Maintenance & OEE Command Center
+# SaveAlife BLR — Agentic Emergency Dispatch for Bengaluru
 
-**Snowflake CoCo CLI Hackathon 2026 — Predictive Maintenance and OEE Command Center**
+IBM Bobathon: Build for Bengaluru 2026 — Theme 1, Smarter Streets Better Living
 
-A factory's machines stream sensor data into Snowflake. ForgePulse watches
-that stream autonomously: it detects developing faults days before failure,
-investigates the root cause against the plant's own repair history —
-including scanned handwritten reports — creates the work order with parts
-and a production-aware schedule, and shows a supervisor everything on a
-live deployed console, with the projected OEE impact of acting early.
+A bystander reports a road accident on a phone. SaveAlife BLR reads six traffic cameras and the live road network, decides which hospital's ambulance should go — or whether the patient is critical enough and the roads bad enough that only the helicopter will make it — explains every rejected option in one line, and puts the decision in front of a human dispatcher to confirm. The hospital is pre-alerted before the vehicle moves. The ER watches vitals and a timeline from the moment of the report.
 
-**Deployed console:** `<CONSOLE_URL>` (Snowflake login required; served by
-Snowpark Container Services from inside the submission account)
+Deployed prototype: https://savealife-blr.2gwnl9m982ir.us-south.codeengine.appdomain.cloud (IBM Cloud Code Engine; open it and click a scenario)
 
-> The deployed link runs on a 30-day hackathon trial account expiring
-> ~17 Oct 2026. The system is fully reproducible from this repo —
-> `docs/redeploy.md` plus `sql/08_load.sql` bring an empty account to a
-> running console in about an hour. Happy to redeploy on request.
-
-**Demo video:** `<VIDEO_URL>`
-
----
+Demo video: <VIDEO_URL>
 
 ## The doctrine
 
-> **Rules own safety. Retrieval owns grounding. The model owns reasoning.**
+**The rule owns the decision. Cameras and the road network own the ground. The agent owns the explanation. The dispatcher owns the button.**
 
-Every layer of ForgePulse follows this split:
+Every layer follows this split:
 
-- **Deterministic rules** decide what is a fault, what severity it carries,
-  and what tier of action follows. No model can override the stuck-sensor
-  floor or dispatch parts for an instrumentation error.
-- **Retrieval** grounds every explanation: the RCA narrative may only cite
-  numbers that exist in query results, and fleet history comes from actual
-  work orders and actual scanned repair reports found by semantic search.
-- **Models reason on top**: a registered XGBoost classifier adds pattern
-  probability and explainable factors; Cortex COMPLETE writes the narrative
-  from the evidence dossier; a vision model reads the scanned paperwork.
+- A **deterministic rule** decides what is rejected and what is taken: a route through a blocked junction, a hospital without the specialty, a hospital with no free ambulance, an ETA outside the patient's window. No model can send a P3 patient a helicopter or dispatch anything without a human click.
+- **Ground truth is data, not opinion**: six fixed cameras with a count and a state, real road geometry and live times from the Routes API, six real hospitals with their specialties and helipads. Every number in a recommendation traces to one of those.
+- **Models reason on top**: a vision model reads the bystander's scene photo for posture and traffic; Granite classifies the report text; a watsonx Orchestrate agent is given the same five tools and the same rule and asked to reach its own recommendation. Its answer is shown beside the rule's, with an *agrees / differs* chip. In all five scenarios it agrees. If it ever differed, the rule would still be what Confirm executes.
 
 ## What happens, end to end
 
-1. **Stream** — a Kafka producer emits 4 sensors × 12 assets every 5
-   seconds; a consumer lands batches in `OT.RAW_TELEMETRY`. A Snowflake
-   **stream** marks the new rows.
-2. **Detect (autonomous)** — a serverless **task** fires every minute, but
-   only spends compute when the stream has data. The detection **procedure**
-   computes engineered features (z-scores against each asset's own 28-day
-   baseline, slopes, variance collapse, vibration→temperature lag
-   correlation) and opens an `ANOMALY_EVENTS` row with a fault-pattern ID.
-   Idempotency: one open event per asset+mode — an ACTIONED event blocks
-   re-alerting (a rule added after the autonomous DAG itself surfaced the
-   duplicate-alert bug; see `tests/test_idempotency.py`).
-3. **Diagnose (autonomous)** — the next task in the DAG assembles the
-   evidence dossier (features that fired, asset context, matching fleet
-   work-order history) and writes a finding. `SNOWFLAKE.CORTEX.COMPLETE`
-   turns the dossier into a structured narrative **inside the stored
-   procedure**: Observed → Probable cause → Supporting history → Urgency.
-   Strict grounding: every number in the text traces to a table row.
-4. **Enrich (explainability)** — a worker computes the same features the
-   classifier was trained on, runs the **Model Registry** classifier for
-   pattern probability, extracts SHAP top factors, embeds the symptoms and
-   retrieves the three most similar past repairs from the scanned-report
-   corpus by **VECTOR cosine similarity — the search runs inside
-   Snowflake**.
-5. **Act (autonomous)** — tier rules create the work order: parts checked
-   against `SPARE_PARTS_INVENTORY`, the repair scheduled into the lowest-
-   load window in `PRODUCTION_SCHEDULE`, notification logged. Sensor
-   faults (FP-03) never dispatch parts.
-6. **Show** — the deployed console renders it all: live waveforms whose
-   display envelope is driven by real values against real baselines, the
-   plant floor, the **AI Diagnosis panel** (verdict, confidence,
-   top factors, similar past repairs with remedies and downtimes, and
-   three evidence-backed questions a supervisor can click), and the
-   **OEE bridge**: average unplanned downtime for this failure mode from
-   history vs the planned 4-hour stop → hours avoided → availability and
-   OEE deltas per line.
+**Report** — the bystander's phone shows a prefilled form: where, what happened, how many hurt, awake / breathing / bleeding. One tap adds a scene photo. The photo is analysed on the server and never shown to the hospital; only the structured read (lying still / sitting / standing, traffic density, vehicles) goes forward.
 
-## The document layer
+**Triage** — unconscious or not breathing is P1; bleeding or a limb injury is P2; otherwise P3. The photo can only raise severity. Severity sets the clock: a P1 must be at hospital in 25 minutes, a P2 in 45, a P3 in 90. The mechanism sets the need: neuro, trauma, ortho or general.
 
-Twenty scanned, handwritten repair reports (generated with jitter,
-rotation, and scan noise; ground truth in `reports/reports_index.csv`)
-are read by a local vision model and validated field-by-field:
-**100/100 key fields correct.** The extracted rows live in
-`EXTRACTED_REPORTS`; each report is embedded by
-`SNOWFLAKE.CORTEX.EMBED_TEXT_768('snowflake-arctic-embed-m', …)` into a
-`VECTOR(FLOAT, 768)` column, searched with `VECTOR_COSINE_SIMILARITY`
-in plain SQL (`sql/07_embed_reports.sql`). Fleet learning made visible:
-a new fault on one machine cites its siblings' repair paperwork.
+**Cameras** — six fixed junctions: Madiwala, Agara, Sarjapur Jn, Bommanahalli, Koramangala Sony World, HSR BDA. Each reports LOW (under 80 vehicles), HIGH (80–250, adds delay in proportion to the count) or BLOCKED (lane closed or stalled — any route through it is rejected outright, not slowed). The dispatch screen shows a looping clip per state so the dispatcher sees what the number means.
 
-## The classifier — an honest MLOps story
+**Routes** — three candidates per scenario, each to a named hospital, drawn on real road geometry with a base time from the Google Routes API and the live time beside it. The ambulance leaves *from* the chosen hospital and returns *to* it with the patient, so the ETA is the round trip. For P1 and P2 a green corridor on the return leg saves 1.5 minutes per junction.
 
-The fault classifier (XGBoost, 5 classes, registered in the **Model
-Registry** as `FAULT_PATTERN_CLASSIFIER`, version `WITTY_STARFISH_1`)
-initially misfired in serving: 99% confident of belt slip on a textbook
-bearing fault. Eight documented iterations followed — feature
-train/serve skew, RPM regime mixture from production-schedule speed
-changes, distribution shift from saturated faults the training sim never
-contained, severity miscalibration — each diagnosed with evidence
-(per-class feature means vs live values) and fixed at the root. Final
-state: serving features computed with the exact training formulas; RPM
-features excluded (documented data-regime limitation — FP-04 detection
-remains rule-layer); the model now agrees with the rule layer at 98.87%
-confidence, served natively via `FAULT_PATTERN_CLASSIFIER!PREDICT_PROBA`
-with no Python at inference time, and the rules were the safety floor the
-whole time. The full arc is in the session receipts.
+**Decide** — reject the blocked, the wrong-specialty and the no-ambulance routes; take the fastest of the rest that lands inside the window. If nothing passes and the patient is P1, propose the helicopter: HAL Airport to the scene, scene to the nearest helipad hospital with the specialty. If nothing passes and the patient is P2 or P3, take the fastest usable road and flag the delay to the hospital. In parallel, the Orchestrate agent calls the five tools and writes its own recommendation.
 
-## Snowflake services used
+**Confirm** — the dispatcher sees both reasoning panels, every rejected route with its reason, the camera strip, and a Confirm button. Air can be overridden to road. Nothing moves before the click.
 
-Warehouses · Stages + PUT/COPY · Streams · Serverless Tasks (chained DAG)
-· Stored Procedures · Cortex AISQL (`COMPLETE`, `EMBED_TEXT_768`) ·
-VECTOR datatype + vector similarity functions · Resource Monitors ·
-Snowpark (Session + snowflake-ml) · Model Registry · Image Repository ·
-Compute Pools · Snowpark Container Services (public endpoint) ·
-Semantic Views · Cortex Agents (DDL) · Notebooks (managed Python) ·
-CoCo CLI (deployment agent + custom Agent Skills)
+**Move** — an eight-step sequence the dispatcher and the ER both watch: incident pulses, chosen hospital highlights, chosen route highlights, vehicle leaves the hospital, loads at the scene, returns with corridor junctions turning green one by one, arrives, returns to base. In one scenario the cameras clear mid-trip and the agent re-checks; the trace and the ER's expected arrival both update.
 
-## Cortex — gated for a month, native at the end
+**Hand off** — the ER screen has had the patient since the report: severity, vitals and ECG, every bystander checklist tick on the timeline, an intake form prefilled by the handoff step. Accept Handoff closes the loop.
 
-`SNOWFLAKE.CORTEX.COMPLETE`, `EMBED_TEXT_768`, Cortex Search, Document AI
-runtime, and `DATA_AGENT_RUN` returned *"not available for trial accounts"*
-on every account class this hackathon provided for most of the build —
-verified across four accounts including two created through dedicated
-hackathon links, with query IDs on the support ticket. The model-role
-grant path (`CORTEX-MODEL-ROLE-ALL`) was also tested: the gate sat above
-it. ForgePulse was therefore architected as **Cortex-native definitions
-with local adapters at runtime**, and shipped that way for six weeks.
+## The five scenarios
 
-The organizers' AI Data Cloud flow lifted the gate in the final week.
-The submission account runs **Cortex natively**: RCA narratives are
-generated in-procedure by `CORTEX.COMPLETE('llama3.1-70b', …)` against
-the evidence dossier, and the twenty-report corpus is embedded by
-`CORTEX.EMBED_TEXT_768('snowflake-arctic-embed-m', …)` into
-`VECTOR(FLOAT, 768)` and searched with `VECTOR_COSINE_SIMILARITY` —
-retrieval end to end inside the account, no local model in the loop.
+Each changes one or two things and holds the rest fixed, so a judge can see exactly what moved the decision. Five scenarios end at four different hospitals.
 
-The adapters remain in the repo as the documented fallback
-(`src/llm_worker.py`, `src/embed_reports.py`) for any account where the
-gate still applies, and Document AI extraction still runs through local
-qwen2.5-vl (validated 100%). Built honest under constraint; swapped to
-native the day the door opened.
+**S1 — one route blocked.** Silk Board, 18:30, a man sitting on the kerb holding his arm. P2, ortho. The shortest route to St John's runs through Madiwala, where a stalled truck sits across the lanes: rejected outright. The other St John's route is fine but St John's has no ambulance free. Fortis via Bommanahalli passes. Road from Fortis, corridor on the return. A distance-only dispatcher sends the ambulance into the blockage.
 
-## CoCo CLI as the deployment agent
+**S2 — all roads fail, critical.** Outer Ring Road near Agara Lake, 18:45, a man lying on the road, not moving, head injury. P1, neuro. Agara is blocked by the crash itself; the other two routes are 60 and 67 minutes round trip against a 25-minute window, even with a corridor. Every road option fails and the patient is critical, so: helicopter, HAL to the scene in six minutes, then to St John's helipad, 14.7 minutes in all. NIMHANS has neuro but no helipad, and the trace says so.
 
-The entire system was deployed to this account **by CoCo in agentic
-sessions** — schema, 1.24M-row load with verified counts, streams, procs,
-task DAG, fault catalog, Cortex-native diagnosis, model registration,
-SPCS service. Receipts (prompts, approvals, incidents, self-corrections —
-including CoCo detecting its own over-firing delete against a known-good
-count and recovering by clean reload) are in `docs/coco-sessions/`.
-Three custom **Agent Skills** (`failure-prediction`, `rca-investigation`,
-`work-order-dispatch`) let CoCo operate the plant conversationally; both
-investigation skills are live-verified in the receipts.
+**S3 — same crash, minor.** Identical cameras, identical blocked junction, identical route timings for A and B. The man is standing, talking, holding one hand. P3, general, 90-minute window. Road from Apollo, no corridor, no helicopter. This pair is the whole argument: the agent is reasoning about the patient, not the traffic. A P3 does not get a helicopter however bad the jam is.
+
+**S4 — clear roads, critical.** Hosur Road at 06:10, every camera LOW, a rider on his side not responding. P1, neuro. Fortis is rejected (no neuro), St John's is rejected (no ambulance free), NIMHANS — the neuro hospital — sends its ambulance with a green corridor on the return, because a P1 gets every minute the city can give even when the roads are empty.
+
+**S5 — the jam clears mid-trip.** Sarjapur Road at 17:50, four cameras HIGH, a rider against the divider who cannot move his leg. P2, ortho. Both St John's routes are out (no ambulance free), leaving Manipal via Sarjapur Jn at 43.8 minutes against a 45-minute window — it passes only because of the corridor. On the return leg two cameras drop from HIGH to LOW; the agent re-evaluates, the trace shows the ETA falling, the timeline logs it. The decision is live, not one-shot.
+
+## The agent — an honest story
+
+The dispatch agent runs in watsonx Orchestrate as a native agent, `savealife_dispatch`, with five OpenAPI tools served by this application from Code Engine: `get_incident`, `get_cameras`, `get_routes`, `get_hospitals`, `get_air_option`. Its instructions are the rule above, written out. `scripts/wxo_test_agent.py` drives all five scenarios through the live instance and asserts the recommendation; it reports 5/5, about ten seconds each.
+
+It was supposed to run on Granite. Granite 4 H Small, Orchestrate's `react` style: every run returned Orchestrate's generic "I did not understand" in six seconds, 39 completion tokens, empty step history — the model never emitted a parseable tool call. `react_core`: same. `default` style (native function calling): "LLM has responded with empty message." `orchestrate models list` then showed that the instance's recommended agent models are gpt-oss-120b, Claude Sonnet and Gemma, and Granite is hidden as not recommended for agents. The agent was switched to gpt-oss-120b — Orchestrate's own default, and what IBM's stock agents in the same instance use — and passed 5/5 on the first run. The diagnostic that found this (`scripts/wxo_diag.py`) is in the repo. Granite still does the triage text and, with Llama 4 Maverick, the scene photo, on watsonx.ai.
+
+## IBM services used
+
+watsonx Orchestrate (native agent, OpenAPI tools, runs API) · watsonx.ai (Granite 4 H Small, Llama 4 Maverick vision, Essentials plan) · IBM Cloud Code Engine (build from source, public endpoint) · IBM Cloud IAM · IBM Bob 2.0 (four build tasks, sessions exported)
+
+Outside IBM: Google Routes API for road geometry and live times (fetched once, cached), OpenStreetMap tiles, Leaflet.
+
+## Bob as the builder
+
+The screens and the simulation engine were hand-built and tested first so that Bob had a stable codebase to extend. Bob then built the entire IBM-platform layer in four tasks, each a single written spec pasted once, each ending with the full test suite green. Receipts are in `bob_sessions/`, one export per task.
+
+1. **Deploy** — Dockerfile, `.dockerignore`, Code Engine deploy script, README section. 19 tests.
+2. **Tools** — five stateless endpoints keyed by scenario, with LLM-facing descriptions that the agent used correctly first time; the OpenAPI exporter and import script; 29 new tests. 48 tests.
+3. **Agent** — the agent YAML with the rule as instructions, the import script, the five-scenario harness against the Orchestrate REST API; a follow-up corrected the chat endpoint to runs → poll → thread messages. 48 tests, agent 5/5.
+4. **Wiring** — the agent called in a background thread on every report, the rule kept as ground truth, both shown on the dispatch screen with the agrees/differs chip. Bob noticed that its own local import inside the thread would defeat the test's monkeypatch and fixed it before reporting. 50 tests.
+
+Debugging and design happened outside Bob so each session is a clean record of what Bob did. Bobcoins used: <N> of 50.
+
+## What is simulated, what is real
+
+Real: road geometry and live times for every route; hospitals, specialties, helipads and junction locations; the agent, the tools, the deployment and the human-confirm gate; the token and compute costs.
+
+Simulated, and labelled so on screen: camera counts and states and the six camera clips; the patient, vitals, ECG and the twenty-five scene photos (illustrations — no faces, number plates or wounds); which hospitals have an ambulance free in each scenario; vehicle movement on a sixty-second clock. No real person appears anywhere; no government ID, health record or children's data is used.
+
+## Impact
+
+Minutes saved from report to hospital arrival, against dispatching on the default shortest route, computed per incident and shown on the dispatch screen as the sequence runs. S1 13.6, S2 57.5, S3 5.2, S4 0, S5 3.0. These are scenario-modelled comparisons on synthetic traffic, not measured savings; in S1–S3 the default route is blocked, so the baseline is the time a distance-only dispatcher would have committed to before discovering it. Read it as: in three of five scenarios the default dispatch would not have arrived at all, and in S2 no road option could get a P1 patient to a neuro hospital inside the window.
+
+One decision costs about 1,600 tokens on the agent and under 1,000 on watsonx.ai — a fifth of a US cent. A day of testing used 0.2 GB-hours on Code Engine. The IBM Cloud credit shows $0.00 consumed.
 
 ## Repository map
 
 ```
-sql/            01_schema … 08_load — the account, reproducible
-src/            generators, kafka pipe, workers, extraction, embedding,
-                training, enrichment
-forgepulse-ui/  FastAPI backend (Snowflake-backed + mock) + console +
-                Dockerfile/spec for SPCS
-scripts/        run.ps1 orchestrator (-Feed -Worker -Ui -All), env template,
-                deploy.py (SQL runner + stage/verify, CoCo-free path)
-skills/         CoCo agent skills
-tests/          18-test pytest suite (feature math, extraction validation,
-                API contract, idempotency regression)
-reports/        scanned corpus + ground truth + extracted fields
-docs/           BRD, redeploy runbook, SPCS runbook, session receipts
+app/            FastAPI: incident flow, tool endpoints (Bob 2), simulation engine,
+                watsonx.ai client, Orchestrate client (Bob 4), the three screens
+data/           scenarios.json (hospitals, junctions, five scenarios), routes_cache.json
+orchestrate/    tools_openapi.json (Bob 2), dispatch_agent.yaml (Bob 3)
+scripts/        preflight, fetch_routes, Orchestrate import/test/diag, deploy (Bob 1)
+tests/          50-test pytest suite: every scenario's decision, S2/S3 contrast,
+                override, S5 re-evaluation, phases, tools, agent wiring
+bob_sessions/   exported Bob sessions, one per task
+docs/           submission document
 ```
 
 ## Run it
 
-```powershell
-# one-time: python -m venv .venv ; pip install -r requirements.txt
-# copy scripts\env.example.ps1 -> scripts\env.ps1 and fill credentials
-.\scripts\run.ps1 -All        # kafka + producer + consumer + workers + console
-pytest                        # 18 tests
+```
+python -m venv .venv ; .venv\Scripts\activate ; pip install -r requirements.txt
+copy .env.example .env           # SIMULATION=true needs no keys
+uvicorn app.main:app --reload    # http://127.0.0.1:8000/
+pytest -q                        # 50 tests
 ```
 
-Full account redeploy from empty: `docs/redeploy.md` — rehearsed four
-times, roughly one hour via a single CoCo prompt, or via
-`scripts/deploy.py` where the CoCo CLI is unavailable.
+With keys: `python scripts\preflight.py` checks every service; `python scripts\fetch_routes.py` pulls real road geometry; `AGENT_LIVE=true` turns on the Orchestrate panel. Full redeploy: `ibmcloud ce app update --name savealife-blr --build-source .` from a logged-in CLI, five to eight minutes.
 
----
-
-*Built solo by Mrinal Desai for the Snowflake CoCo CLI Hackathon 2026.*
+Built solo by Mrinal Desai, 7–8 November 2026, for the IBM Bobathon: Build for Bengaluru. Everything in this repository was written during the hackathon window; the commit history shows the timeline.
