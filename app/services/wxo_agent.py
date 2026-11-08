@@ -34,7 +34,8 @@ def _lookup_agent_id() -> str:
         return _agent_id
     resp = httpx.get(f"{_base()}/v1/orchestrate/agents", headers=_headers(), timeout=30)
     resp.raise_for_status()
-    agents = resp.json().get("agents") or resp.json().get("data") or resp.json()
+    body = resp.json()
+    agents = body if isinstance(body, list) else (body.get("agents") or body.get("data") or [])
     if isinstance(agents, list):
         for a in agents:
             if a.get("name") == "savealife_dispatch":
@@ -122,7 +123,8 @@ def ask_dispatch_agent(
                 timeout=30,
             )
             if mr.is_success:
-                msgs = mr.json().get("messages") or mr.json().get("data") or []
+                body = mr.json()
+                msgs = body if isinstance(body, list) else (body.get("messages") or body.get("data") or [])
                 for m in reversed(msgs):
                     if m.get("role") == "assistant":
                         content = m.get("content", "")
