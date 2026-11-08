@@ -231,7 +231,7 @@ def decide(sc: dict, severity: str, need: str, cams: dict[str, int], blocked: se
             trace.append(f"Air: {AIR_BASE['name']} → scene {air['base_distance_km']} km → {h['short']} helipad {air['distance_km']} km: {air['eta_min']} min incl. lift-off, loading, landing. Passes.")
             no_pad = [HOSPITALS[k]["short"] for k in HOSPITALS if need in HOSPITALS[k]["specialties"] and not HOSPITALS[k]["helipad"]]
             if no_pad:
-                trace.append(f"{', '.join(no_pad)} have {need} but no helipad.")
+                trace.append(f"{', '.join(no_pad)} {'has' if len(no_pad) == 1 else 'have'} {need} but no helipad.")
             mode, chosen, hospital, eta = "air", "AIR", air["hospital"], air["eta_min"]
             reason = f"Helicopter to {h['short']}, {eta} min. Every road option fails for a P1."
         else:
