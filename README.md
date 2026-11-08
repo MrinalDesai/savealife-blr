@@ -145,6 +145,10 @@ Savings are scenario-modelled on synthetic traffic, against the time a distance-
 <p align="center"><img src="docs/ibm-tech.png" width="900" alt="IBM technology used in SaveAlife BLR"></p>
 
 
+## IBM technology
+
+<p align="center"><img src="docs/ibm-tech.png" width="900" alt="IBM technology used in SaveAlife BLR"></p>
+
 ## Bob built the IBM layer
 
 The screens and the simulation engine were hand-built and tested first so Bob had a stable codebase to extend. Each task was one written spec, pasted once; debugging happened outside Bob so each session is a clean record. Exports in `bob_sessions/`.
