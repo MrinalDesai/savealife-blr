@@ -13,10 +13,13 @@ from __future__ import annotations
 
 import json
 import math
+import threading
 import time
 import uuid
 from pathlib import Path
 from typing import Any
+
+from app.config import settings
 
 DATA = json.loads((Path(__file__).resolve().parents[2] / "data" / "scenarios.json").read_text(encoding="utf-8"))
 HOSPITALS: dict[str, dict] = DATA["hospitals"]
@@ -290,6 +293,7 @@ class Incident:
         self._logged_phases: set[str] = set()
         self.checklist = [{"text": t, "done": False} for t in sc["checklist"]]
         self.timeline: list[dict] = []
+        self.agent: dict = {}
         self.log("Bystander report received", sc["location"])
 
     def log(self, event: str, detail: str = "") -> None:
@@ -301,6 +305,23 @@ class Incident:
         self.status = "triaged"
         self.log(f"Triage agent: {self.severity}, needs {self.need}", "; ".join(self.triage_reasons))
         self.log("Dispatch agent recommendation", self.decision["reason"])
+
+        if not settings.simulation or settings.agent_live:
+            self.agent = {"status": "pending"}
+            _sid = self.scenario["id"]
+            _sev = self.severity
+            _need = self.need
+            _decision_mode = self.decision["mode"]
+
+            def _run_agent() -> None:
+                import app.services.wxo_agent as _wxo  # local import avoids circular deps at startup; call via module so monkeypatching works
+                result = _wxo.ask_dispatch_agent(_sid, _sev, _need)
+                result["status"] = "done"
+                result["agrees"] = result["mode"] == _decision_mode
+                self.agent = result
+
+            t = threading.Thread(target=_run_agent, daemon=True)
+            t.start()
 
     def confirm(self, override_road: bool = False) -> None:
         if not self.decision:
@@ -401,6 +422,7 @@ class Incident:
             "patient": {"id": "SAL-DEMO-0001", "name": "Ravi Demo", "sex": "M", "age": 34, "blood": "O+"},
             "hospitals": HOSPITALS, "junctions": JUNCTIONS, "air_base": AIR_BASE,
             "candidate_routes": [{"id": r["id"], "hospital": r["hospital"], "base_min": r["base_min"], "points": route_points(self.scenario, r)} for r in self.scenario["routes"]],
+            "agent": self.agent,
         }
 
 

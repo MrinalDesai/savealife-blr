@@ -108,6 +108,8 @@
       <div class="card stack" style="flex:1; min-height:0; gap:8px">
         <div class="kicker">Dispatch agent · Granite 4 · watsonx Orchestrate</div>
         <div class="trace grow" id="trace"></div>
+        <div class="kicker" style="margin-top:4px">watsonx Orchestrate · savealife_dispatch</div>
+        <div id="agentPanel" style="font:12px/1.6 var(--mono);color:var(--ink2);min-height:2em"></div>
         <div class="row">
           <button class="primary grow" id="confirm" disabled>CONFIRM DISPATCH</button>
           <button id="override" disabled>Override → road</button>
@@ -279,7 +281,7 @@ function renderCams(st) {
 }
 
 function render(st) {
-  albumSt = st; markScenario(st); renderCams(st);
+  albumSt = st; markScenario(st); renderCams(st); renderAgent(st && st.agent);
   const patient = document.getElementById('patient'), trace = document.getElementById('trace');
   const confirm = document.getElementById('confirm'), override = document.getElementById('override');
   const bar = document.getElementById('phasebar');
@@ -317,6 +319,32 @@ function render(st) {
   } else cor.style.display = 'none';
   document.getElementById('saved').textContent = st.decision ? st.decision.minutes_saved : '—';
   document.getElementById('eta').textContent = st.eta_left_min != null ? (st.eta_left_min <= 0 ? 'arrived' : `${st.eta_left_min} min`) : (st.decision ? `${st.decision.eta_min} min` : '—');
+}
+
+function renderAgent(ag) {
+  const el = document.getElementById('agentPanel');
+  if (!ag || Object.keys(ag).length === 0) { el.innerHTML = ''; return; }
+  if (ag.status === 'pending') {
+    el.innerHTML = '<span style="color:var(--mute)">Asking the agent…</span>';
+    return;
+  }
+  if (!ag.ok) {
+    el.innerHTML = `<span style="color:#ff8a8e">Error: ${esc(ag.error || 'unknown')}</span><br><span class="sim">rule applies</span>`;
+    return;
+  }
+  const lines = (ag.text || '').split('\n').map(l => {
+    const u = l.trim().toUpperCase();
+    const isRec = u.startsWith('RECOMMEND AIR') || u.startsWith('RECOMMEND ROAD');
+    return isRec ? `<b style="color:#8ab4ff">${esc(l)}</b>` : esc(l);
+  }).join('\n');
+  const chipStyle = ag.agrees
+    ? 'background:#1a3e2a;color:#3ddc84;border:1px solid #2d6b47;border-radius:4px;padding:1px 7px;font-size:11px'
+    : 'background:#3a2a14;color:#ffb454;border:1px solid #6b4a20;border-radius:4px;padding:1px 7px;font-size:11px';
+  const chipText = ag.agrees ? 'agrees with rule' : 'differs from rule — rule applies';
+  const meta = [ag.elapsed_s != null ? `${ag.elapsed_s}s` : null, ag.model || null].filter(Boolean).join(' · ');
+  el.innerHTML = `<pre style="margin:0 0 6px;white-space:pre-wrap;word-break:break-word">${lines}</pre>` +
+    `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><span style="${chipStyle}">${chipText}</span>` +
+    (meta ? `<span class="sim">${esc(meta)}</span>` : '') + '</div>';
 }
 
 document.getElementById('canned').onclick = async () => { const st = await api('/incident/state').catch(() => null); if (!st) return alert('Pick a scenario first'); await post('/incident/photo_sim', {}); await post('/incident/report', st.report); };

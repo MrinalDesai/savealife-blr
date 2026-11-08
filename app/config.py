@@ -26,6 +26,7 @@ class Settings:
     )
     google_routes_api_key: str = field(default_factory=lambda: _env("GOOGLE_ROUTES_API_KEY"))
     simulation: bool = field(default_factory=lambda: _env("SIMULATION", "true").lower() == "true")
+    agent_live: bool = field(default_factory=lambda: _env("AGENT_LIVE", "false").lower() == "true")
 
     def missing(self) -> list[str]:
         """Names of required settings that are empty."""
