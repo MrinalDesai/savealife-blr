@@ -156,7 +156,7 @@ The screens and the simulation engine were hand-built and tested first so Bob ha
 | 3 Agent | `dispatch_agent.yaml` with the rule as instructions; import script; five-scenario harness against the Orchestrate REST API; follow-up fixed the chat endpoint | 48 · agent 5/5 |
 | 4 Wiring | Background agent call on every report; rule stays ground truth; dispatch panel with agrees/differs chip. Bob caught that its own local import would defeat the test's monkeypatch and fixed it before reporting | 50 |
 
-Bobcoins used: **N** of 50.
+Bobcoins used: **4** of 50.
 
 ## Data: what is simulated and what is not
 
