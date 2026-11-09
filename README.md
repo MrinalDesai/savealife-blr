@@ -61,7 +61,7 @@ scene photo ─────────► vision model (watsonx.ai) ──► p
 5. **Decide.** Fastest route that passes. None and P1 → helicopter, HAL → scene → nearest helipad hospital with the specialty. None and P2/P3 → fastest usable road, delay flagged. A P3 never gets a helicopter.
 6. **Confirm.** Both panels on screen, Override air → road available, then a sixty-second sequence the dispatcher and the ER both watch.
 
-**Measured:** 50 tests assert every scenario's decision; the live Orchestrate agent matches the rule 5/5 at about ten seconds a run.
+**Measured:** 51 tests assert every scenario's decision; the live Orchestrate agent matches the rule 5/5 at 10 to 20 seconds a run.
 
 ## In pictures
 
@@ -109,12 +109,12 @@ The ER has had the patient since the report: severity and need, live vitals and 
 
 ## A five-minute tour
 
-1. **S2** (1 min). Dispatch → S2 → *Send canned report*. Read the rule trace while the Orchestrate panel fills. Confirm. Watch the helicopter go HAL → scene → St John's. Click the incident for the album.
+1. **S2** (1 min). Dispatch → S2 → *Send bystander report*. Read the rule trace while the Orchestrate panel fills. Confirm. Watch the helicopter go HAL → scene → St John's. Click the incident for the album.
 2. **S3** (1 min). Same crash. Standing patient. Road from Apollo. No helicopter.
 3. **S1** (40 s). Blocked junction. Watch A get rejected and the Fortis ambulance go.
 4. **S5** (1 min). Corridor on the return; cameras clear mid-trip; the ETA drops in the trace and on the ER screen.
 5. **ER and Bystander** (40 s). Open both; tick a checklist item on the phone; see it on the ER timeline.
-6. **Bob** (40 s). `bob_sessions/` — four exports; `pytest -q` — 50 passed.
+6. **Bob** (40 s). `bob_sessions/` — five exports from four tasks; `pytest -q` — 51 passed.
 
 ## The five scenarios
 
@@ -171,7 +171,7 @@ python -m venv .venv ; .venv\Scripts\activate       # Windows; source .venv/bin/
 pip install -r requirements.txt
 copy .env.example .env                               # SIMULATION=true needs no keys
 uvicorn app.main:app --reload                        # http://127.0.0.1:8000/
-pytest -q                                            # 50 tests
+pytest -q                                            # 51 tests
 ```
 
 With keys in `.env`: `python scripts\preflight.py` checks IAM, both watsonx.ai models with a live call each, Orchestrate, Routes and the credit balance; `python scripts\fetch_routes.py` pulls real road geometry; `AGENT_LIVE=true` turns on the Orchestrate panel.
@@ -198,8 +198,8 @@ ibmcloud ce app update --name savealife-blr --build-source . --port 8080 --env-f
 | Blocked route rejected with "blocked at Madiwala" | pass |
 | Five tool endpoints × five scenarios | 25 / 25 |
 | Agent wiring with the agent mocked, success and failure paths | pass |
-| **Total** | **50 passed** |
-| Live Orchestrate agent, five scenarios, RECOMMEND AIR/ROAD as expected | **5 / 5**, 10–12 s each |
+| **Total** | **51 passed** |
+| Live Orchestrate agent, five scenarios, RECOMMEND AIR/ROAD as expected | **5 / 5**, 10–20 s each |
 
 Cost per decision: about 1,600 tokens on the agent, under 1,000 on watsonx.ai — a fifth of a US cent. IBM Cloud credit consumed: $0.00.
 
@@ -220,7 +220,7 @@ data/scenarios.json         hospitals, junctions, five scenarios, camera states,
 data/routes_cache.json      real road geometry and live times
 orchestrate/                tools_openapi.json (Bob 2) · dispatch_agent.yaml (Bob 3)
 scripts/                    preflight · fetch_routes · wxo_import_tools · wxo_import_agent · wxo_test_agent · wxo_diag · deploy_ce (Bob 1)
-tests/                      50 tests
+tests/                      51 tests
 bob_sessions/               four exported Bob sessions
 docs/                       hero, screenshots, submission PDF
 ```
