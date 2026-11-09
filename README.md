@@ -4,7 +4,7 @@
 
 <p align="center">
 <a href="https://savealife-blr.2gwnl9m982ir.us-south.codeengine.appdomain.cloud"><img src="https://img.shields.io/badge/Live%20demo-open%20the%20app-3ddc84?style=flat-square&labelColor=0b0f14" alt="Live demo"></a>
-<a href="VIDEO_URL"><img src="https://img.shields.io/badge/Demo%20video-5%20min-e5484d?style=flat-square&labelColor=0b0f14&logo=youtube" alt="Demo video"></a>
+<a href="https://youtu.be/kk92x39pzfc"><img src="https://img.shields.io/badge/Demo%20video-5%20min-e5484d?style=flat-square&labelColor=0b0f14&logo=youtube" alt="Demo video"></a>
 <a href="docs/SaveAlife_BLR_Submission.pdf"><img src="https://img.shields.io/badge/Submission%20doc-PDF-ffb454?style=flat-square&labelColor=0b0f14" alt="Submission document"></a>
 <a href="bob_sessions/"><img src="https://img.shields.io/badge/Bob%20sessions-4%20tasks-9aa4b2?style=flat-square&labelColor=0b0f14" alt="Bob sessions"></a>
 </p>
@@ -30,7 +30,7 @@ A bystander stops at a crash and does not know what to do. A dispatcher has to p
 | What | Where |
 | --- | --- |
 | Live prototype | https://savealife-blr.2gwnl9m982ir.us-south.codeengine.appdomain.cloud |
-| Demo video | VIDEO_URL |
+| Demo video | https://youtu.be/kk92x39pzfc |
 | Submission document (PDF) | `docs/SaveAlife_BLR_Submission.pdf` |
 | Bob sessions, one per task | `bob_sessions/` |
 
